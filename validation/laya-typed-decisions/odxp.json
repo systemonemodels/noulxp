@@ -1,0 +1,86 @@
+{
+  "standard": "odxp/0.1",
+  "name": "convai-innovations/laya:typed-decisions",
+  "profile": "encoder-markers",
+  "weights": {
+    "path": "model.onnx",
+    "sha256": "1a59fbd397fdad0b3a2963c07fa602e1174f8b6295e40efb7488c0f4f0ef055e",
+    "format": "onnx",
+    "opset": 18,
+    "data": [
+      {
+        "path": "model.safetensors",
+        "sha256": "4fa56de72383a9d3efa9cfa78955733c81b9fc8067a587ca4beb82c78107a24e"
+      }
+    ]
+  },
+  "tokenizer": {
+    "path": "tokenizer.json",
+    "sha256": "6c8aaa9a542084f2457eab775d4eeb51f92a70c0fd9de28d5edb0ddec3c08d30"
+  },
+  "template": {
+    "path": "template.json",
+    "sha256": "db6f41cf3e6753b4be7b4687bf2f60ad5858432e1e3179a9bb18f9cdd42e904b"
+  },
+  "calibration": {
+    "path": "calibration.json",
+    "sha256": "5141460c205fceafea39216d382872fde42074e7df906d99672943bf3c9e6fde"
+  },
+  "answers": {
+    "confidence": {
+      "choice": "entropy",
+      "score": "entropy",
+      "noul": "max-probability"
+    }
+  },
+  "limits": {
+    "max_tokens": 1024,
+    "max_options": 20,
+    "max_levels": 10,
+    "max_option_tokens": 48
+  },
+  "source": {
+    "model": "convaiinnovations/laya",
+    "license": "Apache-2.0",
+    "encoder": "answerdotai/ModernBERT-large",
+    "checkpoint": "typed-decisions",
+    "export": {
+      "graph": {
+        "opset": 18,
+        "initializers_from_checkpoint": 201,
+        "cast_from_half_precision": 201,
+        "nodes": 2131,
+        "graph_bytes": 5139274
+      },
+      "verification": {
+        "rows": 5,
+        "same_argmax": 5,
+        "max_abs_logit": 8.821487426757812e-06,
+        "max_abs_p": 2.068917465791742e-06
+      }
+    },
+    "converted_by": "opendxp 0.1.0",
+    "converted_at": "2026-09-28T15:51:29Z"
+  },
+  "conformance": {
+    "path": "conformance.jsonl",
+    "sha256": "3948089c55ea0b679dc2660b92972f94a71a72556cb744ebeba70f7d09a82ae2",
+    "cases": 52,
+    "questions": 91,
+    "errors": 0,
+    "tolerance": {
+      "max_abs_dp": 0.01,
+      "tie_margin": 0.001
+    },
+    "generated_by": {
+      "runtime": "laya",
+      "code": "laya.load(...).system_one",
+      "laya": "0.3.5",
+      "torch": "2.14.0",
+      "transformers": "5.17.0",
+      "device": "cpu",
+      "tool": "opendxp 0.1.0",
+      "seconds": 12.5
+    }
+  }
+}

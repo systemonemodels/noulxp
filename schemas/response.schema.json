@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:odxp:0.1:response",
+  "title": "System One response",
+  "description": "What a runtime returns for a request: one answer per question, and the tokens read. SPEC.md section 8.",
+  "type": "object",
+  "required": ["answers", "usage"],
+  "properties": {
+    "answers": {"type": "object", "additionalProperties": {"$ref": "#/$defs/answer"}},
+    "usage": {
+      "type": "object",
+      "required": ["input_tokens", "output_tokens"],
+      "properties": {
+        "input_tokens": {"type": "integer", "minimum": 0},
+        "output_tokens": {"const": 0}
+      }
+    }
+  },
+  "$defs": {
+    "p": {"type": "number", "minimum": 0, "maximum": 1},
+    "answer": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["type", "choice", "probabilities"],
+          "properties": {
+            "type": {"const": "choice"},
+            "choice": {"type": "string"},
+            "probabilities": {"type": "object", "additionalProperties": {"$ref": "#/$defs/p"}},
+            "confidence": {"$ref": "#/$defs/p"}
+          }
+        },
+        {
+          "type": "object",
+          "required": ["type", "score", "legend", "probabilities"],
+          "properties": {
+            "type": {"const": "score"},
+            "score": {"type": "number", "minimum": 0},
+            "legend": {"type": "object", "additionalProperties": {"type": "string"}},
+            "probabilities": {"type": "object", "additionalProperties": {"$ref": "#/$defs/p"}},
+            "confidence": {"$ref": "#/$defs/p"}
+          }
+        },
+        {
+          "type": "object",
+          "required": ["type", "noul"],
+          "properties": {
+            "type": {"const": "noul"},
+            "noul": {"$ref": "#/$defs/p"},
+            "confidence": {"$ref": "#/$defs/p"}
+          }
+        }
+      ]
+    }
+  }
+}

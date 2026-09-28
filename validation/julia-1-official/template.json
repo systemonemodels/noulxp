@@ -1,0 +1,69 @@
+{
+  "standard": "odxp/0.1",
+  "profile": "encoder-markers",
+  "special_tokens": {
+    "cls": "<bos>",
+    "sep": "<eos>",
+    "marker": "<mask>",
+    "pad": "<pad>"
+  },
+  "question_type_ids": {
+    "choice": 0,
+    "score": 1,
+    "noul": 2
+  },
+  "layout": [
+    {
+      "token": "cls"
+    },
+    {
+      "part": "head"
+    },
+    {
+      "token": "sep"
+    },
+    {
+      "part": "options"
+    },
+    {
+      "token": "sep"
+    },
+    {
+      "part": "state"
+    },
+    {
+      "token": "sep"
+    }
+  ],
+  "head": "{type} question: {instructions}",
+  "options": {
+    "prefix": " ",
+    "choice": {
+      "described": "{description}",
+      "bare": "{name}"
+    },
+    "score": {
+      "described": "{description}"
+    },
+    "noul": {
+      "false": {
+        "described": "{description}",
+        "bare": "false"
+      },
+      "true": {
+        "described": "{description}",
+        "bare": "true"
+      }
+    }
+  },
+  "budgets": {
+    "total": 8192,
+    "head": 512,
+    "option": 48,
+    "reserve": 16,
+    "option_floor": 4,
+    "head_floor": 8
+  },
+  "truncation": "strict",
+  "reserved_text": "reject"
+}

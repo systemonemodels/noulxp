@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
+.venv/
+# Packages are large: they live outside the repository.
+/packages/
+*.onnx
+*.onnx.data
+*.gguf
+*.safetensors

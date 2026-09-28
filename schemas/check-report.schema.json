@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:odxp:0.1:check-report",
+  "title": "Conformance check report",
+  "description": "What `opendxp check` writes: the package, the runtime and machine, the agreement with the conformance file, latency and the verdict. SPEC.md section 10.",
+  "type": "object",
+  "required": ["standard", "package", "runtime", "tolerance", "cases", "cases_passed", "questions", "max_abs_dp", "argmax_agreement", "errors", "coverage", "passed", "compatible"],
+  "properties": {
+    "standard": {"const": "odxp/0.1"},
+    "package": {"type": "object", "required": ["name", "profile"]},
+    "runtime": {"type": "object", "required": ["implementation", "profile", "backend"]},
+    "machine": {"type": "object"},
+    "tolerance": {
+      "type": "object",
+      "required": ["max_abs_dp", "tie_margin"],
+      "properties": {"max_abs_dp": {"type": "number"}, "tie_margin": {"type": "number"}}
+    },
+    "cases": {"type": "integer", "minimum": 0},
+    "cases_passed": {"type": "integer", "minimum": 0},
+    "questions": {"type": "integer", "minimum": 0},
+    "max_abs_dp": {"type": "number", "minimum": 0},
+    "mean_abs_dp": {"type": "number", "minimum": 0},
+    "argmax_agreement": {
+      "type": "object",
+      "required": ["agree", "total"],
+      "properties": {"agree": {"type": "integer"}, "total": {"type": "integer"}}
+    },
+    "errors": {
+      "type": "object",
+      "required": ["expected", "matched"],
+      "properties": {"expected": {"type": "integer"}, "matched": {"type": "integer"}}
+    },
+    "latency_ms": {"type": "object"},
+    "package_problems": {"type": "array", "items": {"type": "string"}},
+    "coverage": {"type": "object", "required": ["ok", "checks"]},
+    "passed": {"type": "boolean"},
+    "compatible": {"type": "boolean"},
+    "failures": {"type": "array"},
+    "checked_at": {"type": "string"}
+  }
+}

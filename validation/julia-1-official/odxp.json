@@ -1,0 +1,92 @@
+{
+  "standard": "odxp/0.1",
+  "name": "supersonic-labs/julia-1:official-onnx",
+  "profile": "encoder-markers",
+  "weights": {
+    "path": "model.onnx",
+    "sha256": "cf96cbcc98a359d6cc6730ee323306e12c6ed0071bc1edf1bcc12aacb74a4e7d",
+    "format": "onnx",
+    "opset": 18,
+    "data": [
+      {
+        "path": "model.safetensors",
+        "sha256": "df853bf7fe424420011f3d0c47a05d7341aa9eefa7fb9f203ea4aada4ad95b72"
+      }
+    ]
+  },
+  "tokenizer": {
+    "path": "tokenizer.json",
+    "sha256": "609d8f4c067cd3950f88594c5a802616cea245823836ef5848ee4fc40aab5b6f"
+  },
+  "template": {
+    "path": "template.json",
+    "sha256": "49b6830cdc714239d5aa01859e6c46c28eddfd41e603c5be1b56b639f09ba7cb"
+  },
+  "calibration": {
+    "path": "calibration.json",
+    "sha256": "75175b3f2a0676ee2b43f34a7763d8d9ea80f47c1798c9e411760f5ce750c0c1"
+  },
+  "answers": {
+    "confidence": {
+      "choice": "max-probability",
+      "score": "max-probability"
+    }
+  },
+  "limits": {
+    "max_tokens": 8192,
+    "max_options": 20,
+    "max_option_tokens": 48
+  },
+  "source": {
+    "model": "SupersonicLabs/Julia-1",
+    "license": "Apache-2.0",
+    "checkpoint": "julia-1",
+    "export": {
+      "graph": {
+        "graph": "SupersonicLabs/Julia-1-ONNX/model.onnx",
+        "graph_sha256": "97141d0cfb1da6204e9f8f24d581af72eaeb82cda21149d83eaa6df7160fbcd9",
+        "renamed": {
+          "marker_pos": "marker_positions",
+          "qtype": "question_type",
+          "logits": "option_logits"
+        },
+        "initializers_from_checkpoint": 69,
+        "transposes_rebuilt_from_checkpoint": 96,
+        "opset": 18,
+        "graph_bytes": 2997878
+      },
+      "verification": {
+        "rows": 5,
+        "same_argmax": 5,
+        "max_abs_logit": 5.91278076171875e-05,
+        "max_abs_p": 1.1849656023854571e-05
+      }
+    },
+    "converted_by": "opendxp 0.1.0",
+    "converted_at": "2026-09-28T15:51:48Z"
+  },
+  "conformance": {
+    "path": "conformance.jsonl",
+    "sha256": "e9acd88e257593d2cf5845b10ee1a2b84db971438e9ce210d90a43145178aad2",
+    "cases": 52,
+    "questions": 89,
+    "errors": 2,
+    "tolerance": {
+      "max_abs_dp": 0.01,
+      "tie_margin": 0.001
+    },
+    "generated_by": {
+      "runtime": "julia",
+      "code": "opendxp.native.julia.Julia",
+      "code_sha256": "166e18155a360ef48b316d5e097e68763099b1613bbb389c38ac67e23207d512",
+      "torch": "2.14.0",
+      "transformers": "5.17.0",
+      "tokenizers": "0.23.2",
+      "safetensors": "0.8.0",
+      "threads": 4,
+      "device": "cpu",
+      "tool": "opendxp 0.1.0",
+      "seconds": 2.2
+    }
+  }
+}

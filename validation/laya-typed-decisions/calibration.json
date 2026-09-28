@@ -1,0 +1,66 @@
+{
+  "standard": "odxp/0.1",
+  "temperature": {
+    "choice": 1.0148024559020996,
+    "score": 1.0374259948730469,
+    "noul": 1.0575125217437744
+  },
+  "by_option_count": [
+    {
+      "type": "choice",
+      "min": 2,
+      "max": 2,
+      "temperature": 1.9063563346862793
+    },
+    {
+      "type": "choice",
+      "min": 3,
+      "max": 5,
+      "temperature": 1.7601518630981445
+    },
+    {
+      "type": "choice",
+      "min": 6,
+      "max": 10,
+      "temperature": 1.0000158548355103
+    },
+    {
+      "type": "choice",
+      "min": 11,
+      "max": null,
+      "temperature": 0.5
+    },
+    {
+      "type": "score",
+      "min": 3,
+      "max": 5,
+      "temperature": 1.2514300346374512
+    },
+    {
+      "type": "noul",
+      "min": 2,
+      "max": 2,
+      "temperature": 1.983399510383606
+    }
+  ],
+  "source": {
+    "file": "rl_agent_config.json",
+    "temperature": [
+      1.0148024559020996,
+      1.0374259948730469,
+      1.0575125217437744
+    ],
+    "temperature_by_options": {
+      "choice:3-5": 1.7601518630981445,
+      "choice:6-10": 1.0000158548355103,
+      "score:3-5": 1.2514300346374512,
+      "noul:2": 1.983399510383606,
+      "choice:11+": 0.10058280825614929,
+      "choice:2": 1.9063563346862793
+    },
+    "rule": "laya applies every temperature clamped to [0.5, 5.0]",
+    "clamped": [
+      "choice:11+: 0.100583 -> 0.5"
+    ]
+  }
+}

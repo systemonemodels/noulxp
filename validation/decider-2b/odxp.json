@@ -1,0 +1,67 @@
+{
+  "standard": "odxp/0.1",
+  "name": "mapika/decider",
+  "profile": "causal-letters",
+  "weights": {
+    "path": "model.gguf",
+    "sha256": "3657848acb4851da4465ab4abad7c6fe273c7e1f15e83629cd6da972a5282cb3",
+    "format": "gguf"
+  },
+  "tokenizer": {
+    "path": "tokenizer.json",
+    "sha256": "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523"
+  },
+  "prompt": {
+    "path": "prompt.json",
+    "sha256": "13627de481310dbb8bb96c64e87b9251465bf5018c90e1275a2aff41ceeec153"
+  },
+  "calibration": {
+    "path": "calibration.json",
+    "sha256": "3c7f81fcfdd7dbcda354bc6993aab7f348f2aeff5741c6e44d8ec96fdb9bf331"
+  },
+  "answers": {
+    "confidence": {
+      "choice": "typesafe",
+      "score": "typesafe-ordinal"
+    }
+  },
+  "limits": {
+    "max_tokens": 40960,
+    "max_options": 255,
+    "max_levels": 10
+  },
+  "source": {
+    "model": "Mapika/decider-2b-GGUF",
+    "version": "2b-v11",
+    "license": "Apache-2.0",
+    "checkpoint": "decider-2b",
+    "weights_file": "model.gguf",
+    "converted_by": "opendxp 0.1.0",
+    "converted_at": "2026-09-28T15:51:50Z"
+  },
+  "conformance": {
+    "path": "conformance.jsonl",
+    "sha256": "8ae5ab61f6dfc17d4b0a426c286ad39fdfff4082fc12282e4a8d1f7a394fe72e",
+    "cases": 52,
+    "questions": 91,
+    "errors": 0,
+    "tolerance": {
+      "max_abs_dp": 0.01,
+      "tie_margin": 0.001
+    },
+    "generated_by": {
+      "runtime": "decider",
+      "code": "opendxp.native.decider.Decider",
+      "code_sha256": "d0d084c537218031286039515a1840a3dcb64e1215de1bf9e60811f6548aa981",
+      "llama_cpp_python": "0.3.35",
+      "transformers": "5.17.0",
+      "tokenizers": "0.23.2",
+      "numpy": "2.5.3",
+      "decoding": "each row in full",
+      "threads": 4,
+      "device": "cpu",
+      "tool": "opendxp 0.1.0",
+      "seconds": 106.7
+    }
+  }
+}

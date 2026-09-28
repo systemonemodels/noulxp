@@ -1,0 +1,18 @@
+{
+ "device": "cpu",
+ "threads": 4,
+ "each row in full": {
+  "cases_passed": "52/52",
+  "argmax": "91/91",
+  "max_abs_dp": 0.0,
+  "mean_abs_dp": 0.0,
+  "seconds": 122.9
+ },
+ "shared prefix": {
+  "cases_passed": "49/52",
+  "argmax": "90/91",
+  "max_abs_dp": 0.0184,
+  "mean_abs_dp": 0.002013,
+  "seconds": 67.0
+ }
+}

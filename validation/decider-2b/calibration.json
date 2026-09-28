@@ -1,0 +1,18 @@
+{
+  "standard": "odxp/0.1",
+  "temperature": {
+    "choice": 1.164,
+    "score": 1.124,
+    "noul": 1.624
+  },
+  "source": {
+    "file": "decider_config.json",
+    "temperature": 1.145,
+    "temperature_by_type": {
+      "choice": 1.164,
+      "noul": 1.624,
+      "score": 1.124
+    },
+    "rule": "decider.temperature: temperature_by_type[type], else temperature; every level row of an isolated score uses the score temperature"
+  }
+}

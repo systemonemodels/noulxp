@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:odxp:0.1:template",
+  "title": "encoder-markers input construction (template.json)",
+  "description": "How the reference runtime builds the token ids and marker positions for one question. SPEC.md section 5.",
+  "type": "object",
+  "required": ["standard", "profile", "special_tokens", "question_type_ids", "layout", "head", "options", "budgets", "truncation"],
+  "properties": {
+    "standard": {"const": "odxp/0.1"},
+    "profile": {"const": "encoder-markers"},
+    "special_tokens": {
+      "type": "object",
+      "required": ["marker", "pad"],
+      "properties": {
+        "cls": {"type": "string", "minLength": 1},
+        "sep": {"type": "string", "minLength": 1},
+        "marker": {"type": "string", "minLength": 1},
+        "pad": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": {"type": "string", "minLength": 1}
+    },
+    "question_type_ids": {
+      "type": "object",
+      "required": ["choice", "score", "noul"],
+      "properties": {
+        "choice": {"type": "integer", "minimum": 0},
+        "score": {"type": "integer", "minimum": 0},
+        "noul": {"type": "integer", "minimum": 0}
+      },
+      "additionalProperties": false
+    },
+    "layout": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "oneOf": [
+          {"type": "object", "required": ["token"], "properties": {"token": {"type": "string"}}, "additionalProperties": false},
+          {"type": "object", "required": ["part"], "properties": {"part": {"enum": ["head", "options", "state"]}}, "additionalProperties": false}
+        ]
+      }
+    },
+    "head": {"type": "string"},
+    "options": {
+      "type": "object",
+      "required": ["choice", "score", "noul"],
+      "properties": {
+        "prefix": {"type": "string"},
+        "choice": {"$ref": "#/$defs/forms"},
+        "score": {"$ref": "#/$defs/forms"},
+        "noul": {
+          "type": "object",
+          "required": ["false", "true"],
+          "properties": {"false": {"$ref": "#/$defs/forms"}, "true": {"$ref": "#/$defs/forms"}},
+          "additionalProperties": false
+        }
+      }
+    },
+    "budgets": {
+      "type": "object",
+      "required": ["total", "head", "option"],
+      "properties": {
+        "total": {"type": "integer", "minimum": 8},
+        "head": {"type": "integer", "minimum": 1},
+        "option": {"type": "integer", "minimum": 1},
+        "reserve": {"type": "integer", "minimum": 0, "default": 16},
+        "option_floor": {"type": "integer", "minimum": 1, "default": 4},
+        "head_floor": {"type": "integer", "minimum": 0, "default": 8}
+      },
+      "additionalProperties": false
+    },
+    "truncation": {"enum": ["strict", "truncate-state"]},
+    "reserved_text": {"enum": ["replace", "reject"], "default": "replace"},
+    "instructions": {"$ref": "#/$defs/instructions"}
+  },
+  "$defs": {
+    "forms": {
+      "type": "object",
+      "properties": {
+        "described": {"type": "string"},
+        "bare": {"type": "string"}
+      },
+      "minProperties": 1,
+      "additionalProperties": false
+    },
+    "instructions": {
+      "type": "object",
+      "properties": {
+        "fallback": {
+          "type": "object",
+          "propertyNames": {"enum": ["choice", "score", "noul"]},
+          "additionalProperties": {"type": "string"}
+        },
+        "required": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    }
+  }
+}

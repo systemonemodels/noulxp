@@ -1,0 +1,18 @@
+{
+ "device": "gpu",
+ "threads": 4,
+ "each row in full": {
+  "cases_passed": "43/52",
+  "argmax": "91/91",
+  "max_abs_dp": 0.0364,
+  "mean_abs_dp": 0.004134,
+  "seconds": 48.9
+ },
+ "shared prefix": {
+  "cases_passed": "43/52",
+  "argmax": "91/91",
+  "max_abs_dp": 0.0364,
+  "mean_abs_dp": 0.004133,
+  "seconds": 30.9
+ }
+}

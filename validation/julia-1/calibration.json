@@ -1,0 +1,9 @@
+{
+  "standard": "odxp/0.1",
+  "temperature": {
+    "choice": 1.0,
+    "score": 1.0,
+    "noul": 1.0
+  },
+  "source": "Julia 1 publishes no calibration (inference-policy.json: calibration null); the temperature buffer in the checkpoint is [1, 1, 1] and is never read."
+}

@@ -1,0 +1,20 @@
+{
+  "standard": "odxp/0.1",
+  "temperature": {
+    "choice": 1.0,
+    "score": 1.0,
+    "noul": 1.0
+  },
+  "by_option_count": [],
+  "source": {
+    "file": "rl_agent_config.json",
+    "temperature": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "temperature_by_options": {},
+    "rule": "laya applies every temperature clamped to [0.5, 5.0]",
+    "clamped": []
+  }
+}

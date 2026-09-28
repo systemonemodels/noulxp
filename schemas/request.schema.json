@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:odxp:0.1:request",
+  "title": "System One request",
+  "description": "A state and typed questions, answered in one pass. SPEC.md section 3.",
+  "type": "object",
+  "required": ["questions"],
+  "properties": {
+    "state": {"description": "Text. A JSON value is accepted and rendered as JSON (SPEC.md 3.2)."},
+    "questions": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {"$ref": "#/$defs/question"}
+    }
+  },
+  "$defs": {
+    "question": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {"enum": ["choice", "score", "noul"]},
+        "instructions": {"type": "string"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"type": {"const": "choice"}}},
+          "then": {
+            "required": ["criteria"],
+            "properties": {
+              "criteria": {
+                "oneOf": [
+                  {"type": "object", "minProperties": 2, "propertyNames": {"minLength": 1}},
+                  {"type": "array", "minItems": 2, "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {"properties": {"type": {"const": "score"}}},
+          "then": {
+            "required": ["criteria"],
+            "properties": {"criteria": {"type": "array", "minItems": 2}}
+          }
+        },
+        {
+          "if": {"properties": {"type": {"const": "noul"}}},
+          "then": {
+            "properties": {
+              "criteria": {
+                "oneOf": [
+                  {"type": "null"},
+                  {"type": "object", "propertyNames": {"enum": ["false", "true"]}}
+                ]
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

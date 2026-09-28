@@ -1,0 +1,69 @@
+{
+  "standard": "odxp/0.1",
+  "profile": "encoder-markers",
+  "special_tokens": {
+    "cls": "<bos>",
+    "sep": "<eos>",
+    "marker": "<mask>",
+    "pad": "<pad>"
+  },
+  "question_type_ids": {
+    "choice": 0,
+    "score": 1,
+    "noul": 2
+  },
+  "layout": [
+    {
+      "token": "cls"
+    },
+    {
+      "part": "head"
+    },
+    {
+      "token": "sep"
+    },
+    {
+      "part": "options"
+    },
+    {
+      "token": "sep"
+    },
+    {
+      "part": "state"
+    },
+    {
+      "token": "sep"
+    }
+  ],
+  "head": "{type} question: {instructions}",
+  "options": {
+    "prefix": " ",
+    "choice": {
+      "described": "{name}: {description}",
+      "bare": "{name}"
+    },
+    "score": {
+      "described": "level {index}: {description}"
+    },
+    "noul": {
+      "false": {
+        "described": "false: {description}",
+        "bare": "false: no, the statement does not hold"
+      },
+      "true": {
+        "described": "true: {description}",
+        "bare": "true: yes, the statement holds"
+      }
+    }
+  },
+  "budgets": {
+    "total": 1024,
+    "head": 256,
+    "option": 48,
+    "reserve": 16,
+    "option_floor": 4,
+    "head_floor": 8
+  },
+  "truncation": "truncate-state",
+  "reserved_text": "replace"
+}

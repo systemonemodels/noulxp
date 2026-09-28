@@ -1,0 +1,21 @@
+OpenDXP, the Open Decision Exchange Protocol
+Copyright 2026 System One Models
+
+This product includes software derived from:
+
+- laya (convaiinnovations/laya), Apache-2.0: the input construction reproduced
+  declaratively in the Laya converter (laya/common.py build_sequence,
+  render_options, clamp_temperature, temp_bucket).
+- Julia 1 (SupersonicLabs/Julia-1, revision a85b127321d580d65176c89ced8273f305745d85),
+  Apache-2.0: the JuliaDecisionModel inference subset in opendxp/export/julia.py
+  (julia/model.py), the input construction reproduced in its template
+  (julia/data.py sequence()), and its inference path rebuilt in
+  opendxp/native/julia.py (model.py, data.py, router/engine.py, typed.py).
+- Decider (github.com/Mapika/decider at 23579f7a, decider-ai 1.6.0), Apache-2.0:
+  the prompt layout, labels, isolated score levels and temperatures reproduced
+  declaratively in the Decider converter (decider/prompt.py, prompt_fast.py,
+  systemone.py, temperature.py, engine_gguf.py), and its request rendering,
+  prompt construction and GGUF readout rebuilt in opendxp/native/decider.py.
+
+OpenDXP packages converted from these models carry the models' own weights and
+remain under the models' licences.

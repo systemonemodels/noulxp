@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:odxp:0.1:prompt",
+  "title": "causal-letters prompt (prompt.json)",
+  "description": "How the reference runtime builds the prompt rows for one question and where it reads the answer. SPEC.md section 6.",
+  "type": "object",
+  "required": ["standard", "profile", "context", "question", "labels", "layouts", "options"],
+  "properties": {
+    "standard": {"const": "odxp/0.1"},
+    "profile": {"const": "causal-letters"},
+    "context": {
+      "type": "object",
+      "required": ["template"],
+      "properties": {
+        "template": {"type": "string", "pattern": "\\{state\\}"},
+        "max_tokens": {"type": "integer", "minimum": 1}
+      },
+      "additionalProperties": false
+    },
+    "question": {
+      "type": "object",
+      "required": ["head", "option", "tail"],
+      "properties": {
+        "head": {"type": "string"},
+        "option": {"type": "string", "pattern": "^[^{]*(\\{(?!label\\})[^}]*\\}[^{]*)*\\{label\\}.*\\{text\\}"},
+        "tail": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "labels": {"type": "array", "minItems": 2, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "layouts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["max_options", "encoding"],
+        "properties": {
+          "max_options": {"type": "integer", "minimum": 2},
+          "encoding": {"enum": ["joined", "split-at-label"]}
+        },
+        "additionalProperties": false
+      }
+    },
+    "slot": {"const": "last", "default": "last"},
+    "options": {
+      "type": "object",
+      "required": ["choice", "score", "noul"],
+      "properties": {
+        "choice": {"$ref": "#/$defs/forms"},
+        "score": {"$ref": "#/$defs/forms"},
+        "noul": {
+          "type": "object",
+          "required": ["false", "true"],
+          "properties": {"false": {"$ref": "#/$defs/forms"}, "true": {"$ref": "#/$defs/forms"}},
+          "additionalProperties": false
+        }
+      }
+    },
+    "score": {
+      "oneOf": [
+        {"type": "object", "required": ["mode"], "properties": {"mode": {"const": "list"}}, "additionalProperties": false},
+        {
+          "type": "object",
+          "required": ["mode", "question", "options", "read"],
+          "properties": {
+            "mode": {"const": "isolated"},
+            "question": {"type": "string"},
+            "level_strip": {"type": "string"},
+            "options": {"type": "array", "minItems": 2, "items": {"type": "string"}},
+            "read": {"type": "integer", "minimum": 0}
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "instructions": {
+      "type": "object",
+      "properties": {
+        "fallback": {
+          "type": "object",
+          "propertyNames": {"enum": ["choice", "score", "noul"]},
+          "additionalProperties": {"type": "string"}
+        },
+        "required": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    },
+    "state": {
+      "type": "object",
+      "properties": {"index_arrays_from": {"type": "integer", "minimum": 1}},
+      "additionalProperties": false
+    },
+    "decode": {
+      "type": "object",
+      "description": "llama.cpp settings that change the numbers: the ones the model's own engine uses.",
+      "properties": {
+        "flash_attention": {"enum": ["auto", "enabled", "disabled"], "default": "auto"},
+        "kv_cache": {"enum": ["f16", "f32"], "default": "f16"},
+        "ubatch": {"type": "integer", "minimum": 1, "default": 2048}
+      },
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "forms": {
+      "type": "object",
+      "properties": {"described": {"type": "string"}, "bare": {"type": "string"}},
+      "minProperties": 1,
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,240 @@
+{
+  "standard": "odxp/0.1",
+  "package": {
+    "name": "mapika/decider",
+    "profile": "causal-letters",
+    "path": "decider-2b",
+    "conformance_sha256": "8ae5ab61f6dfc17d4b0a426c286ad39fdfff4082fc12282e4a8d1f7a394fe72e",
+    "weights_sha256": "3657848acb4851da4465ab4abad7c6fe273c7e1f15e83629cd6da972a5282cb3"
+  },
+  "runtime": {
+    "implementation": "opendxp 0.1.0",
+    "profile": "causal-letters",
+    "backend": "llama.cpp (llama-cpp-python 0.3.35)",
+    "gpu_offload": true,
+    "threads": null,
+    "n_ctx": 8192,
+    "decode": {
+      "flash_attention": "auto",
+      "kv_cache": "f16",
+      "ubatch": 2048
+    },
+    "device": "gpu"
+  },
+  "machine": {
+    "platform": "macOS-27.0-arm64-arm-64bit",
+    "machine": "arm64",
+    "processor": "Apple M4",
+    "cpus": 10,
+    "python": "3.12.13",
+    "onnxruntime_providers": [
+      "CoreMLExecutionProvider",
+      "AzureExecutionProvider",
+      "CPUExecutionProvider"
+    ],
+    "llama_cpp": "0.3.35",
+    "llama_gpu_offload": true
+  },
+  "tolerance": {
+    "max_abs_dp": 0.01,
+    "tie_margin": 0.001
+  },
+  "cases": 52,
+  "cases_passed": 43,
+  "questions": 91,
+  "max_abs_dp": 0.0364258855392956,
+  "mean_abs_dp": 0.004134139163340588,
+  "argmax_agreement": {
+    "agree": 91,
+    "total": 91
+  },
+  "errors": {
+    "expected": 0,
+    "matched": 0
+  },
+  "latency_ms": {
+    "load": 336.3,
+    "request_median": 343.01,
+    "request_p90": 1419.6,
+    "request_mean": 940.86,
+    "question_median": 237.52,
+    "input_tokens_mean": 228.79
+  },
+  "package_problems": [],
+  "coverage": {
+    "cases": 52,
+    "questions_by_type": {
+      "choice": 41,
+      "score": 20,
+      "noul": 30
+    },
+    "choice_option_counts": [
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      20
+    ],
+    "languages": [
+      "ar",
+      "de",
+      "en",
+      "es",
+      "fr",
+      "hi",
+      "ja",
+      "ne",
+      "pt",
+      "th",
+      "zh"
+    ],
+    "longest_state_chars": 6687,
+    "checks": {
+      "cases": true,
+      "question_types": true,
+      "choice_2_to_10_options": true,
+      "more_than_10_options": true,
+      "languages": true,
+      "long_state": true
+    },
+    "ok": true
+  },
+  "passed": false,
+  "compatible": false,
+  "failures": [
+    {
+      "id": "r07",
+      "ok": false,
+      "max_dp": 0.01962866793493706,
+      "questions": {
+        "category": {
+          "ok": false,
+          "dp": 0.01962866793493706,
+          "argmax_ok": true,
+          "expected_argmax": "harassment",
+          "observed_argmax": "harassment"
+        }
+      }
+    },
+    {
+      "id": "r20",
+      "ok": false,
+      "max_dp": 0.01693436239772539,
+      "questions": {
+        "bug": {
+          "ok": false,
+          "dp": 0.01693436239772539,
+          "argmax_ok": true,
+          "expected_argmax": "true",
+          "observed_argmax": "true"
+        }
+      }
+    },
+    {
+      "id": "r21",
+      "ok": false,
+      "max_dp": 0.014864660962079168,
+      "questions": {
+        "said": {
+          "ok": false,
+          "dp": 0.014864660962079168,
+          "argmax_ok": true,
+          "expected_argmax": "no",
+          "observed_argmax": "no"
+        }
+      }
+    },
+    {
+      "id": "r28",
+      "ok": false,
+      "max_dp": 0.010306808344153429,
+      "questions": {
+        "angry": {
+          "ok": false,
+          "dp": 0.010306808344153429,
+          "argmax_ok": true,
+          "expected_argmax": "false",
+          "observed_argmax": "false"
+        }
+      }
+    },
+    {
+      "id": "r29",
+      "ok": false,
+      "max_dp": 0.016918941881281513,
+      "questions": {
+        "topic": {
+          "ok": false,
+          "dp": 0.016918941881281513,
+          "argmax_ok": true,
+          "expected_argmax": "billing",
+          "observed_argmax": "billing"
+        }
+      }
+    },
+    {
+      "id": "r30",
+      "ok": false,
+      "max_dp": 0.0364258855392956,
+      "questions": {
+        "category": {
+          "ok": false,
+          "dp": 0.0364258855392956,
+          "argmax_ok": true,
+          "expected_argmax": "weather and disasters",
+          "observed_argmax": "weather and disasters"
+        }
+      }
+    },
+    {
+      "id": "r31",
+      "ok": false,
+      "max_dp": 0.013618133862649762,
+      "questions": {
+        "problem": {
+          "ok": false,
+          "dp": 0.013618133862649762,
+          "argmax_ok": true,
+          "expected_argmax": "road",
+          "observed_argmax": "road"
+        }
+      }
+    },
+    {
+      "id": "r33",
+      "ok": false,
+      "max_dp": 0.02009168170051595,
+      "questions": {
+        "complaint": {
+          "ok": false,
+          "dp": 0.02009168170051595,
+          "argmax_ok": true,
+          "expected_argmax": "service",
+          "observed_argmax": "service"
+        }
+      }
+    },
+    {
+      "id": "r50",
+      "ok": false,
+      "max_dp": 0.016148022341406443,
+      "questions": {
+        "currency": {
+          "ok": false,
+          "dp": 0.016148022341406443,
+          "argmax_ok": true,
+          "expected_argmax": "KES",
+          "observed_argmax": "KES"
+        }
+      }
+    }
+  ],
+  "checked_at": "2026-09-28T16:00:41Z"
+}

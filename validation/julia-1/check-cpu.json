@@ -1,0 +1,109 @@
+{
+  "standard": "odxp/0.1",
+  "package": {
+    "name": "supersonic-labs/julia-1",
+    "profile": "encoder-markers",
+    "path": "julia-1",
+    "conformance_sha256": "e9acd88e257593d2cf5845b10ee1a2b84db971438e9ce210d90a43145178aad2",
+    "weights_sha256": "5d2eb230954ecfe387c4be76fa9bc178d474ea0022a53f40991a7bb13b32a72d"
+  },
+  "runtime": {
+    "implementation": "opendxp 0.1.0",
+    "profile": "encoder-markers",
+    "backend": "onnxruntime 1.30.0",
+    "providers": [
+      "CPUExecutionProvider"
+    ],
+    "static_shapes": false,
+    "device": "cpu",
+    "threads": null
+  },
+  "machine": {
+    "platform": "macOS-27.0-arm64-arm-64bit",
+    "machine": "arm64",
+    "processor": "Apple M4",
+    "cpus": 10,
+    "python": "3.12.13",
+    "onnxruntime_providers": [
+      "CoreMLExecutionProvider",
+      "AzureExecutionProvider",
+      "CPUExecutionProvider"
+    ],
+    "llama_cpp": "0.3.35"
+  },
+  "tolerance": {
+    "max_abs_dp": 0.01,
+    "tie_margin": 0.001
+  },
+  "cases": 52,
+  "cases_passed": 52,
+  "questions": 89,
+  "max_abs_dp": 5.165934438539077e-05,
+  "mean_abs_dp": 3.0401270994515957e-05,
+  "argmax_agreement": {
+    "agree": 89,
+    "total": 89
+  },
+  "errors": {
+    "expected": 2,
+    "matched": 2
+  },
+  "latency_ms": {
+    "load": 162.3,
+    "request_median": 21.04,
+    "request_p90": 46.25,
+    "request_mean": 84.56,
+    "question_median": 10.89,
+    "input_tokens_mean": 254.0
+  },
+  "package_problems": [],
+  "coverage": {
+    "cases": 52,
+    "questions_by_type": {
+      "choice": 41,
+      "score": 20,
+      "noul": 30
+    },
+    "choice_option_counts": [
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      20
+    ],
+    "languages": [
+      "ar",
+      "de",
+      "en",
+      "es",
+      "fr",
+      "hi",
+      "ja",
+      "ne",
+      "pt",
+      "th",
+      "zh"
+    ],
+    "longest_state_chars": 6687,
+    "checks": {
+      "cases": true,
+      "question_types": true,
+      "choice_2_to_10_options": true,
+      "more_than_10_options": true,
+      "languages": true,
+      "long_state": true
+    },
+    "ok": true
+  },
+  "passed": true,
+  "compatible": true,
+  "failures": [],
+  "checked_at": "2026-09-28T15:56:34Z"
+}

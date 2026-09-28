@@ -1,0 +1,20 @@
+{
+  "rows": 20,
+  "reference": "cpu, declared settings (flash attention auto, f16 cache)",
+  "cpu, flash attention off": {
+    "max_abs_dp": 0.014173225622347796,
+    "mean_max_abs_dp": 0.0027255090290948733
+  },
+  "gpu, declared settings": {
+    "max_abs_dp": 0.03647509652523129,
+    "mean_max_abs_dp": 0.009304175583193464
+  },
+  "gpu, flash attention off": {
+    "max_abs_dp": 0.03653496226140951,
+    "mean_max_abs_dp": 0.009324802528496014
+  },
+  "gpu, flash attention off, f32 cache": {
+    "max_abs_dp": 0.03653496226140951,
+    "mean_max_abs_dp": 0.009324802528496014
+  }
+}
