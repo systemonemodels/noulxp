@@ -10,11 +10,17 @@ readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE", "NOTICE"]
 requires-python = ">=3.11"
-authors = [{ name = "System One Models" }]
+authors = [{ name = "System One Models", email = "ceo@systemonemodels.tech" }]
 keywords = ["opendxp", "system-one", "decision-models", "onnx", "gguf", "calibration", "conformance"]
 classifiers = [
-  "Programming Language :: Python :: 3",
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
   "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 # The core (request parsing, templates, calibration, conformance) needs only these.
@@ -40,7 +46,14 @@ dev = ["pytest>=8", "ruff>=0.6", "onnx>=1.17", "onnxruntime>=1.20"]
 opendxp = "opendxp.cli:main"
 
 [project.urls]
+Homepage = "https://github.com/systemonemodels/opendxp"
+Documentation = "https://systemonemodels.tech/docs/opendxp"
 Specification = "https://github.com/systemonemodels/opendxp/blob/main/SPEC.md"
+Validation = "https://github.com/systemonemodels/opendxp/blob/main/VALIDATION.md"
+Issues = "https://github.com/systemonemodels/opendxp/issues"
+
+[tool.hatch.build.targets.sdist]
+exclude = [".github"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/opendxp"]

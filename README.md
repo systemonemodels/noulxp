@@ -16,11 +16,11 @@ own code answers on a fixed set of requests. An engine that reproduces that
 file within 0.01 in probability, with the same decisions, runs the model
 faithfully.
 
-- [SPEC.md](SPEC.md): the standard, version 0.1
-- [schemas/](schemas/): JSON Schemas for every file in a package
-- [VALIDATION.md](VALIDATION.md): Laya, Julia 1 and Decider converted and checked
-- [badge/BADGE.md](badge/BADGE.md): the "OpenDXP compatible" badge and its criteria
-- [PAPER.md](PAPER.md): outline of the paper, and which experiments are done
+- [SPEC.md](https://github.com/systemonemodels/opendxp/blob/main/SPEC.md): the standard, version 0.1
+- [schemas/](https://github.com/systemonemodels/opendxp/tree/main/schemas): JSON Schemas for every file in a package
+- [VALIDATION.md](https://github.com/systemonemodels/opendxp/blob/main/VALIDATION.md): Laya, Julia 1 and Decider converted and checked
+- [badge/BADGE.md](https://github.com/systemonemodels/opendxp/blob/main/badge/BADGE.md): the "OpenDXP compatible" badge and its criteria
+- [PAPER.md](https://github.com/systemonemodels/opendxp/blob/main/PAPER.md): outline of the paper, and which experiments are done
 
 OpenDXP is open: the specification, the schemas and this reference
 implementation are Apache-2.0, and anyone may build an engine for it. The
@@ -62,10 +62,15 @@ The `opendxp` Python package (Python 3.11+) is the reference implementation:
 ## Install
 
 ```bash
-pip install -e ".[onnx]"          # encoder-markers runtime
-pip install -e ".[gguf]"          # causal-letters runtime (llama-cpp-python)
-pip install -e ".[export,laya]"   # converters (torch, transformers, onnx, onnxscript, laya)
-pip install -e ".[dev]"           # tests
+pip install "opendxp[onnx]"          # encoder-markers runtime (ONNX Runtime)
+pip install "opendxp[gguf]"          # causal-letters runtime (llama-cpp-python)
+pip install "opendxp[export,laya]"   # converters (torch, transformers, onnx, onnxscript, laya)
+```
+
+From a clone, for development:
+
+```bash
+pip install -e ".[dev]"             # tests and linting
 ```
 
 ## Use a package
@@ -110,7 +115,7 @@ opendxp check packages/julia-1 --device coreml    # a backend: Core ML
 opendxp validate packages/julia-1                 # schemas, parsers, coverage, hashes
 ```
 
-`--runtime laya` uses the `laya` package (`pip install -e ".[laya]"`);
+`--runtime laya` uses the `laya` package (the `laya` extra);
 `julia` and `decider` use `opendxp.native` (with the `export` extra, and
 llama-cpp-python for Decider).
 
