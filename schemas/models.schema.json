@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:odxp:0.2:models",
   "title": "Discovery answer",
-  "description": "What GET /v1/models returns: the models a server holds. SPEC.md section 13.3.",
+  "description": "What GET /v1/models returns: the models a server holds. SPEC.md section 11.3.",
   "type": "object",
   "required": ["object", "data"],
   "properties": {

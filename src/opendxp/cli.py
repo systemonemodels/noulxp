@@ -256,7 +256,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--threads", type=int)
     p.set_defaults(func=cmd_run)
 
-    p = sub.add_parser("serve", help="serve packages over the HTTP binding (SPEC.md 13)")
+    p = sub.add_parser("serve", help="serve packages over the HTTP binding (SPEC.md 11)")
     p.add_argument("packages", nargs="+", metavar="PACKAGE")
     p.add_argument("--host", default="127.0.0.1")
     p.add_argument("--port", type=int, default=spec.DEFAULT_PORT)
@@ -275,7 +275,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--quiet", action="store_true", help="no access log")
     p.set_defaults(func=cmd_serve)
 
-    p = sub.add_parser("mcp", help="serve packages as MCP tools on stdio (SPEC.md 14)")
+    p = sub.add_parser("mcp", help="serve packages as MCP tools on stdio (SPEC.md 12)")
     p.add_argument("packages", nargs="+", metavar="PACKAGE")
     p.add_argument("--device", default="auto")
     p.add_argument("--threads", type=int)

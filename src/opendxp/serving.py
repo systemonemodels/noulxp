@@ -1,7 +1,7 @@
 """What a server holds, and how it answers: shared by the HTTP and MCP bindings.
 
 A server loads packages with the reference runtime, describes each one for
-discovery (SPEC.md 13.3), and answers a request with one of them. The runtimes
+discovery (SPEC.md 11.3), and answers a request with one of them. The runtimes
 are not safe to call from two threads at once (a llama.cpp context is one
 object), so each model answers one request at a time.
 """
@@ -19,7 +19,7 @@ from opendxp.package import Package, open_package
 
 
 class ServingError(Exception):
-    """A request the server turns down, with the error type SPEC.md 13.4 names."""
+    """A request the server turns down, with the error type SPEC.md 11.4 names."""
 
     def __init__(self, kind: str, message: str, status: int) -> None:
         super().__init__(message)
@@ -39,7 +39,7 @@ class ServedModel:
     lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
     def describe(self) -> dict[str, Any]:
-        """The model's entry in a discovery answer (SPEC.md 13.3)."""
+        """The model's entry in a discovery answer (SPEC.md 11.3)."""
         manifest = self.package.manifest
         return {
             "id": self.id,
@@ -133,7 +133,7 @@ def request_problems(request: Any) -> list[str]:
 
 
 def decide(models: list[ServedModel], request: Any) -> dict[str, Any]:
-    """Answer one request (SPEC.md 13.2): the model, its answers and the tokens read."""
+    """Answer one request (SPEC.md 11.2): the model, its answers and the tokens read."""
     problems = request_problems(request)
     if problems:
         raise ServingError("invalid_request", "; ".join(problems[:5]), 400)

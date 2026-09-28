@@ -47,7 +47,7 @@ never estimated.
    show the badge.
 5. **Evaluation.** The experiments below.
 6. **Discussion.** What the tolerance means; backend numerics; sharing
-   computation versus exactness; what 0.1 leaves open (SPEC.md 12).
+   computation versus exactness; what 0.1 leaves open (SPEC.md 14).
 7. **Conclusion.**
 
 ## Experiments

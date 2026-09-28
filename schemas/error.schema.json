@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:odxp:0.2:error",
   "title": "Error answer",
-  "description": "The body of every non-2xx answer of the HTTP binding. SPEC.md section 13.4.",
+  "description": "The body of every non-2xx answer of the HTTP binding. SPEC.md section 11.4.",
   "type": "object",
   "required": ["error"],
   "properties": {

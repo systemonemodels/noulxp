@@ -1,4 +1,4 @@
-"""The MCP binding (SPEC.md 14): both protocol eras, on the toy package."""
+"""The MCP binding (SPEC.md 12): both protocol eras, on the toy package."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""The MCP binding (SPEC.md 14): `opendxp mcp`, every package as a tool for agents.
+"""The MCP binding (SPEC.md 12): `opendxp mcp`, every package as a tool for agents.
 
 An agent that speaks the Model Context Protocol calls a decision model like any
 other tool: the tool's input is an OpenDXP request (SPEC.md 3) and its output

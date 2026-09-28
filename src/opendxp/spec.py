@@ -24,7 +24,7 @@ MIN_CASES = 40
 # Answers round probabilities to this many decimals, as the System One format does.
 DECIMALS = 4
 
-# The HTTP binding (SPEC.md 13): the protocol version a server states in every
+# The HTTP binding (SPEC.md 11): the protocol version a server states in every
 # answer, its two paths, the largest request it must accept, and the reference
 # server's default port. The path is the one Jev's API and the System One Engine
 # already answer on, so their clients work against any OpenDXP server.

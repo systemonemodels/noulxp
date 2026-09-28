@@ -1,4 +1,4 @@
-"""The HTTP binding (SPEC.md 13): `opendxp serve`, the reference server.
+"""The HTTP binding (SPEC.md 11): `opendxp serve`, the reference server.
 
 Any machine serves any package over the standard protocol:
 

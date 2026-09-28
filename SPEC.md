@@ -27,6 +27,18 @@ OpenDXP 0.1 has two **profiles**, one per architecture family:
 A model that fits neither profile can still be listed; it is not OpenDXP
 compatible and runs only with its own code.
 
+OpenDXP is a protocol in four parts, so that any application can ask any
+decision model the same way, on any machine:
+
+1. **Requests and answers** (section 3): one format for a state and typed
+   questions, and for the calibrated answers.
+2. **Packages** (sections 4 to 8): a model as data that any engine runs.
+3. **Conformance** (sections 9 and 10): proof that an engine answers as the
+   model's own code does.
+4. **Bindings** (sections 11 and 12): how requests travel. Over HTTP between
+   an application and a server, and over the Model Context Protocol between an
+   AI agent and a tool.
+
 Terms used below:
 
 - **Native runtime**: the model's own code (for example the `laya` package).
@@ -455,7 +467,112 @@ A **derived package** (quantised or otherwise changed weights) is a different
 package: it carries a conformance file generated with the native runtime on
 the original weights, and reaches level 2 only if it passes it.
 
-## 11. Security considerations
+## 11. HTTP binding
+
+A server holds one or more models and answers requests over HTTP. The
+reference server is `opendxp serve`.
+
+### 11.1 Endpoints
+
+| Method and path | Body | Answer |
+| --- | --- | --- |
+| `POST /v1/systemone` | a request (section 3), with an optional `model` | the model's answer (11.2) |
+| `GET /v1/models` | none | the models the server holds (11.3) |
+| `GET /healthz` | none | `{"ok": true}` while the server can answer |
+
+`/v1/systemone` is the path and body of the System One request that TypeSafe's
+Jev API and the System One Engine answer, so a client written for either works
+against any OpenDXP server. A server MUST state the protocol version in an
+`OpenDXP-Version` header on every answer (`0.2` for this version). Bodies are
+JSON in UTF-8.
+
+### 11.2 Answering
+
+The body is a request (section 3). `model` names one of the server's models by
+the `id` discovery lists; a server that holds exactly one model MAY answer a
+request without it, and one that holds more MUST refuse it. A server MUST
+validate the request against `schemas/request.schema.json` before a model sees
+it.
+
+A `200` answer is the response of section 3.6 (`schemas/response.schema.json`)
+with `model`, the id of the model that answered. It MAY add `latency_ms`.
+
+### 11.3 Discovery
+
+`GET /v1/models` answers `{"object": "list", "data": [...]}`, one entry per
+model (`schemas/models.schema.json`): `id`, `"object": "model"`, the package's
+`standard` and `profile`, the `question_types` it answers, its `limits`, and
+`conformance`: the server's own check of the package (whether it is
+compatible, the cases passed, the largest difference, the device), or null
+when the server did not run one.
+
+### 11.4 Errors
+
+Every non-2xx answer has the body `{"error": {"type": ..., "message": ...}}`
+(`schemas/error.schema.json`):
+
+| Status | `type` | When |
+| --- | --- | --- |
+| 400 | `invalid_request` | the body is not JSON, breaks the request schema, or names no model where one is needed |
+| 401 | `unauthorized` | a token is required and missing or wrong |
+| 404 | `not_found`, `model_not_found` | an unknown path; an unknown `model` |
+| 411 | `invalid_request` | no `Content-Length` |
+| 413 | `request_too_large` | the body is over the server's limit |
+| 422 | `request_refused` | a valid request the model cannot answer (a limit, a reserved token: the refusals a conformance file records) |
+| 503 | `model_not_ready` | the model is still loading; the answer SHOULD carry `Retry-After` |
+| 500 | `internal_error` | anything else |
+
+### 11.5 Limits and access
+
+A server MUST accept requests of at least 1 MiB and MAY refuse larger ones. It
+MUST read every request body before answering, so a kept-alive connection
+never takes an unread body for the next request. A server SHOULD listen only
+on the loopback interface unless it requires a bearer token
+(`Authorization: Bearer ...`) or runs behind a proxy that authenticates; the
+reference server refuses to do otherwise. Browsers MAY be allowed by named
+origin (CORS); a server SHOULD NOT allow every origin by default.
+
+## 12. MCP binding
+
+An AI agent reaches a decision model as a tool of the Model Context Protocol
+(MCP). The reference server is `opendxp mcp`, on the stdio transport.
+
+### 12.1 Tools
+
+A server exposes one tool per model. With one model the tool is `decide`; with
+several, each is `decide_` followed by the model's id, with every character
+other than ASCII letters, digits, `_`, `-` and `.` replaced by `_`, cut to 128
+characters. A tool's:
+
+- `inputSchema` is the request schema of section 3
+  (`schemas/request.schema.json`), so its arguments are a request;
+- `outputSchema`, on MCP revisions that have structured output, is the
+  response schema of section 3.6;
+- `annotations` state `readOnlyHint: true` and `openWorldHint: false`: a
+  decision changes nothing and reaches nothing outside the server;
+- description names the model and its profile, and says the answer carries a
+  calibrated probability per option.
+
+### 12.2 Calls
+
+A call answers the request its arguments carry. The result has one text
+content item holding the answer as JSON and, on revisions with structured
+output, `structuredContent` with the same answer. A request that breaks the
+schema or that the model refuses (11.4's `request_refused`) is a tool
+execution error, `isError: true` with a message the agent can act on, not a
+protocol error. An unknown tool is the JSON-RPC error `-32602`.
+
+### 12.3 Protocol revisions
+
+A server SHOULD serve the current MCP revision, in which every request carries
+its protocol version and client capabilities in `_meta` and `server/discover`
+describes the server, and MAY also serve the `initialize` handshake of earlier
+revisions for clients that still use it. The reference server does both: it
+serves 2026-07-28 per request, and 2025-11-25, 2025-06-18, 2025-03-26 and
+2024-11-05 through `initialize`. On stdio a server MUST write nothing but
+protocol messages to stdout.
+
+## 13. Security considerations
 
 - Nothing in a package is executed (section 2); templates are data.
 - Paths are confined to the package; hashes are checked before loading.
@@ -463,8 +580,15 @@ the original weights, and reaches level 2 only if it passes it.
   it, `reject` refuses it.
 - An engine SHOULD bound request sizes (`limits`) and SHOULD bound the
   resources a package's declared budgets imply before loading it.
+- A server is an input boundary: it validates every request against the
+  schema before a model sees it (11.2), reads and bounds every body (11.5),
+  and listens beyond the loopback interface only behind a token or an
+  authenticating proxy.
+- An MCP tool changes nothing (12.1); an agent may still be steered by what a
+  decision returns, so an application acting on one SHOULD threshold on the
+  probability for what is at stake.
 
-## 12. Left open in 0.1
+## 14. Left open
 
 - One pass for all questions (Laya-style batching of every question in one
   sequence) as a declared profile variant; 0.1 runs one row per question.
@@ -496,3 +620,5 @@ the original weights, and reaches level 2 only if it passes it.
 | a request | `schemas/request.schema.json` |
 | a response | `schemas/response.schema.json` |
 | a check report | `schemas/check-report.schema.json` |
+| a discovery answer (`GET /v1/models`) | `schemas/models.schema.json` |
+| an error answer of the HTTP binding | `schemas/error.schema.json` |

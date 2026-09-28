@@ -16,6 +16,12 @@ own code answers on a fixed set of requests. An engine that reproduces that
 file within 0.01 in probability, with the same decisions, runs the model
 faithfully.
 
+Requests travel the same way everywhere: over HTTP between an application and
+any server (`opendxp serve`, or an engine such as the System One Engine), and
+over the Model Context Protocol between an AI agent and a tool (`opendxp mcp`).
+It is to decision models what MCP is to agent tools: one way to ask any model,
+on any machine.
+
 - [SPEC.md](https://github.com/systemonemodels/opendxp/blob/main/SPEC.md): the standard, version 0.1
 - [schemas/](https://github.com/systemonemodels/opendxp/tree/main/schemas): JSON Schemas for every file in a package
 - [VALIDATION.md](https://github.com/systemonemodels/opendxp/blob/main/VALIDATION.md): Laya, Julia 1 and Decider converted and checked
@@ -54,6 +60,9 @@ The `opendxp` Python package (Python 3.11+) is the reference implementation:
   (`opendxp.native`): Laya through the `laya` package; Julia 1 and Decider
   through faithful rebuilds of their authors' code, checked on the authors'
   published cases.
+- **Servers** for the two bindings: `opendxp serve` answers requests over HTTP
+  on any machine, and `opendxp mcp` gives every package to AI agents as an MCP
+  tool.
 - **Conformance tools**: `opendxp conformance generate` runs the model's own
   code on the OpenDXP 0.1 request set (52 requests, 91 questions, 11 languages
   including Nepali and Thai); `opendxp check` replays it through the reference
@@ -97,6 +106,52 @@ out = model.predict(
 
 From the shell: `opendxp run PACKAGE --request request.json [--device cpu|coreml|cuda|gpu]`.
 `opendxp info` lists this machine's backends.
+
+## Serve it
+
+```bash
+opendxp serve packages/laya-typed-decisions packages/julia-1
+```
+
+Any machine now answers the System One request over HTTP (SPEC.md 11), the
+same request and path TypeSafe's Jev API and the System One Engine answer, so
+their clients work unchanged:
+
+```bash
+curl -s localhost:8790/v1/models          # what this server holds
+curl -s localhost:8790/v1/systemone -H 'content-type: application/json' -d '{
+  "model": "supersonic-labs/julia-1",
+  "state": "Customer: I was charged twice and still have no refund.",
+  "questions": {"angry": {"type": "noul", "instructions": "The customer is angry."}}
+}'
+```
+
+It listens on 127.0.0.1:8790. To listen anywhere else it needs a token
+(`--token`, or `OPENDXP_TOKEN`), which clients send as
+`Authorization: Bearer ...`. `--check` runs each package's conformance file at
+start and reports the result in `/v1/models`; `--cors ORIGIN` lets a browser
+page call it.
+
+## Give it to an AI agent (MCP)
+
+`opendxp mcp` serves packages as tools of the Model Context Protocol, on
+stdio (SPEC.md 12): an agent calls `decide` with a request and gets the answer,
+with a calibrated probability per option, as structured output. In an MCP
+client's configuration (Claude Desktop, Claude Code, Cursor and others):
+
+```json
+{
+  "mcpServers": {
+    "julia-1": {
+      "command": "opendxp",
+      "args": ["mcp", "/path/to/packages/julia-1"]
+    }
+  }
+}
+```
+
+It speaks both eras of MCP: the current revision (per-request metadata,
+`server/discover`) and the `initialize` handshake that earlier clients use.
 
 ## Convert a model and check it
 

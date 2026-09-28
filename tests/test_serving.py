@@ -1,4 +1,4 @@
-"""The HTTP binding (SPEC.md 13) on the toy package, through a real server on a free port."""
+"""The HTTP binding (SPEC.md 11) on the toy package, through a real server on a free port."""
 
 from __future__ import annotations
 

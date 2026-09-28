@@ -107,7 +107,7 @@ other settings and on the GPU
 The Metal difference does not come from flash attention or the cache's
 precision; it is in llama.cpp's Metal kernels. It changes no decision (91/91
 in the full check). This is why `prompt.json` declares its decode settings
-(SPEC.md 6.6), and why tolerance classes per backend are left open (SPEC.md 12).
+(SPEC.md 6.6), and why tolerance classes per backend are left open (SPEC.md 14).
 
 ### Sharing the prompt's prefix
 
