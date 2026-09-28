@@ -44,3 +44,22 @@ def test_answer_formats():
     }
     noul = parse_question("n", {"type": "noul", "instructions": "x"})
     assert answer(noul, [0.123456, 0.876544]) == {"type": "noul", "noul": 0.8765}
+
+
+def test_auto_uses_cuda_or_the_cpu_and_names_the_rest(monkeypatch: pytest.MonkeyPatch) -> None:
+    from opendxp import providers
+
+    def offer(*names: str) -> None:
+        monkeypatch.setattr(providers, "available_onnx_providers", lambda: list(names))
+
+    offer("CoreMLExecutionProvider", "CPUExecutionProvider")
+    assert providers.choose_onnx_providers("auto") == ["CPUExecutionProvider"]
+    assert providers.choose_onnx_providers("coreml") == [
+        "CoreMLExecutionProvider",
+        "CPUExecutionProvider",
+    ]
+    offer("CUDAExecutionProvider", "CPUExecutionProvider")
+    assert providers.choose_onnx_providers("auto") == [
+        "CUDAExecutionProvider",
+        "CPUExecutionProvider",
+    ]

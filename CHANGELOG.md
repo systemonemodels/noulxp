@@ -8,8 +8,9 @@ reference implementation.
 - The standard, `odxp/0.1`: packages (`odxp.json` and the files it names by
   SHA-256), the `encoder-markers` and `causal-letters` profiles, calibration,
   conformance files and compatibility levels, with JSON Schemas for every file.
-- Reference runtimes on ONNX Runtime (CPU, CUDA, Core ML, OpenVINO, QNN,
-  DirectML) and llama.cpp (CPU and GPU builds).
+- Reference runtimes on ONNX Runtime and llama.cpp (CPU and GPU builds).
+  `--device auto` uses CUDA when available and the CPU otherwise; Core ML,
+  OpenVINO, QNN and DirectML are used when named.
 - `opendxp export` for Laya, Julia 1 and Decider; `opendxp conformance
   generate` from the models' own code; `opendxp check`, `validate`, `run` and
   `info`.

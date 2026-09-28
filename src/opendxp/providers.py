@@ -1,8 +1,12 @@
 """Where a package runs: onnxruntime execution providers and llama.cpp GPU offload.
 
-The engine chooses the device, not the model's author. "auto" takes the first
-available provider in PROVIDER_ORDER; naming one ("coreml", "cuda", ...) asks
-for it, with the CPU behind it for any operator it cannot run.
+The engine chooses the device, not the model's author. "auto" takes CUDA when
+this onnxruntime build has it, and the CPU otherwise; naming a provider
+("coreml", "openvino", "qnn", "directml", ...) asks for it, with the CPU behind
+it for any operator it cannot run. The others stay out of "auto" because they
+compile a model per input shape: on an Apple M4, Julia 1 answered in 42 ms
+through Core ML against 21 ms on the CPU, and compiling Laya's shape buckets
+took minutes and gigabytes of temporary space (VALIDATION.md).
 """
 
 from __future__ import annotations
@@ -25,8 +29,9 @@ ORT_PROVIDERS = {
     "directml": "DmlExecutionProvider",
     "cpu": "CPUExecutionProvider",
 }
-# What "auto" tries, best first; the CPU is always the last resort.
-PROVIDER_ORDER = ("cuda", "coreml", "openvino", "qnn", "directml", "cpu")
+# What "auto" tries, best first; the CPU is always the last resort. The other
+# providers are used when named (see the module docstring).
+PROVIDER_ORDER = ("cuda", "cpu")
 # Options that make a provider usable for these graphs (dynamic shapes, float32 answers).
 PROVIDER_OPTIONS: dict[str, dict[str, str]] = {
     "CoreMLExecutionProvider": {"ModelFormat": "MLProgram", "MLComputeUnits": "ALL"},

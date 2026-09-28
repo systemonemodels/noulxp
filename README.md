@@ -44,10 +44,10 @@ the device, not the model's author.
 The `opendxp` Python package (Python 3.11+) is the reference implementation:
 
 - **Reference runtimes** for both profiles. They read only the package and
-  contain nothing specific to any model. The encoder runtime chooses an
-  onnxruntime execution provider from what is installed (CUDA, Core ML,
-  OpenVINO, QNN, DirectML, CPU) and compiles shape buckets for providers that
-  need fixed shapes. The causal runtime drives llama.cpp's low-level API, one
+  contain nothing specific to any model. The encoder runtime runs on CUDA when
+  onnxruntime has it and on the CPU otherwise; Core ML, OpenVINO, QNN and
+  DirectML are used when named (`--device coreml`), and it compiles shape
+  buckets for providers that need fixed shapes. The causal runtime drives llama.cpp's low-level API, one
   row per decode, with every layer on the GPU when the build has one.
 - **Converters** for Laya, Julia 1 and Decider (`opendxp export`).
 - **The models' own inference** for writing conformance files
