@@ -16,6 +16,8 @@ NAMES = {
     "request": "request.schema.json",
     "response": "response.schema.json",
     "check-report": "check-report.schema.json",
+    "models": "models.schema.json",
+    "error": "error.schema.json",
 }
 
 

@@ -24,6 +24,16 @@ MIN_CASES = 40
 # Answers round probabilities to this many decimals, as the System One format does.
 DECIMALS = 4
 
+# The HTTP binding (SPEC.md 13): the protocol version a server states in every
+# answer, its two paths, the largest request it must accept, and the reference
+# server's default port. The path is the one Jev's API and the System One Engine
+# already answer on, so their clients work against any OpenDXP server.
+PROTOCOL_VERSION = "0.2"
+HTTP_DECIDE_PATH = "/v1/systemone"
+HTTP_MODELS_PATH = "/v1/models"
+MAX_REQUEST_BYTES = 1 << 20
+DEFAULT_PORT = 8790
+
 # Confidence rules a package may declare for its answers (SPEC.md, "Answers").
 CONFIDENCE_RULES = ("max-probability", "entropy", "typesafe", "typesafe-ordinal", "none")
 

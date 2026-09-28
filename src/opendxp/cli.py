@@ -5,6 +5,8 @@ opendxp conformance generate PACKAGE --native CHECKPOINT --runtime laya|julia|de
 opendxp check PACKAGE [--device cpu|auto|coreml|cuda|openvino|qnn|directml|gpu]
 opendxp validate PACKAGE
 opendxp run PACKAGE --request request.json
+opendxp serve PACKAGE... [--host 127.0.0.1] [--port 8790] [--token TOKEN] [--check]
+opendxp mcp PACKAGE...
 opendxp info
 """
 
@@ -12,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -131,6 +134,65 @@ def cmd_run(args: argparse.Namespace) -> int:
     return 0
 
 
+def _stderr(message: str) -> None:
+    print(message, file=sys.stderr, flush=True)
+
+
+def cmd_serve(args: argparse.Namespace) -> int:
+    from opendxp import spec
+    from opendxp.server import serve
+    from opendxp.serving import load_models
+
+    token = args.token or os.environ.get("OPENDXP_TOKEN") or None
+    models = load_models(
+        args.packages, device=args.device, threads=args.threads, check=args.check, log=_stderr
+    )
+    try:
+        server = serve(
+            models,
+            host=args.host,
+            port=args.port,
+            token=token,
+            cors=args.cors,
+            allow_open=args.no_auth,
+            quiet=args.quiet,
+        )
+    except ValueError as exc:
+        _stderr(str(exc))
+        return 2
+    host, port = server.server_address[:2]
+    _stderr(
+        f"serving {len(models)} model(s) on http://{host}:{port}"
+        f" (POST {spec.HTTP_DECIDE_PATH}, GET {spec.HTTP_MODELS_PATH}); Ctrl-C to stop"
+    )
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        server.server_close()
+        for model in models:
+            model.close()
+    return 0
+
+
+def cmd_mcp(args: argparse.Namespace) -> int:
+    from opendxp.mcp import McpServer, protect_stdout, run
+    from opendxp.serving import load_models
+
+    protocol = protect_stdout()
+    models = load_models(
+        args.packages, device=args.device, threads=args.threads, check=args.check, log=_stderr
+    )
+    _stderr(f"opendxp mcp: {len(models)} model(s) ready on stdio")
+    try:
+        run(McpServer(models), sys.stdin.buffer, protocol)
+    finally:
+        for model in models:
+            model.close()
+    return 0
+
+
 def cmd_info(args: argparse.Namespace) -> int:
     from opendxp.providers import describe_machine
 
@@ -139,6 +201,8 @@ def cmd_info(args: argparse.Namespace) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    from opendxp import spec
+
     parser = argparse.ArgumentParser(prog="opendxp", description="OpenDXP reference tools")
     parser.add_argument("--version", action="version", version=f"opendxp {__version__}")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -191,6 +255,34 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--device", default="auto")
     p.add_argument("--threads", type=int)
     p.set_defaults(func=cmd_run)
+
+    p = sub.add_parser("serve", help="serve packages over the HTTP binding (SPEC.md 13)")
+    p.add_argument("packages", nargs="+", metavar="PACKAGE")
+    p.add_argument("--host", default="127.0.0.1")
+    p.add_argument("--port", type=int, default=spec.DEFAULT_PORT)
+    p.add_argument("--device", default="auto")
+    p.add_argument("--threads", type=int)
+    p.add_argument("--token", help="require this bearer token (or set OPENDXP_TOKEN)")
+    p.add_argument(
+        "--no-auth",
+        action="store_true",
+        help="listen beyond this machine without a token (only behind an authenticating proxy)",
+    )
+    p.add_argument("--cors", action="append", help="an origin browsers may call from (or *)")
+    p.add_argument(
+        "--check", action="store_true", help="run each conformance file first and report it"
+    )
+    p.add_argument("--quiet", action="store_true", help="no access log")
+    p.set_defaults(func=cmd_serve)
+
+    p = sub.add_parser("mcp", help="serve packages as MCP tools on stdio (SPEC.md 14)")
+    p.add_argument("packages", nargs="+", metavar="PACKAGE")
+    p.add_argument("--device", default="auto")
+    p.add_argument("--threads", type=int)
+    p.add_argument(
+        "--check", action="store_true", help="run each conformance file first and report it"
+    )
+    p.set_defaults(func=cmd_mcp)
 
     p = sub.add_parser("info", help="this machine's backends and devices")
     p.set_defaults(func=cmd_info)
