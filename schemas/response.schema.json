@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:odxp:0.1:response",
+  "$id": "urn:odxp:0.2:response",
   "title": "System One response",
   "description": "What a runtime returns for a request: one answer per question, and the tokens read. SPEC.md section 8.",
   "type": "object",

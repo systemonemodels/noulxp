@@ -1,0 +1,158 @@
+{
+  "standard": "odxp/0.2",
+  "profile": "causal-letters",
+  "chat": {
+    "template": "<|im_start|>system\n{system}<|im_end|>\n<|im_start|>user\n{user}<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+    "system": "You are a decision function. You will be given a state and one question. Reply with the answer label only: no words, no punctuation, no explanation."
+  },
+  "context": {
+    "template": "State:\n{state}\n\n"
+  },
+  "types": {
+    "choice": {
+      "layouts": [
+        {
+          "max_options": 26,
+          "labels": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E",
+            "F",
+            "G",
+            "H",
+            "I",
+            "J",
+            "K",
+            "L",
+            "M",
+            "N",
+            "O",
+            "P",
+            "Q",
+            "R",
+            "S",
+            "T",
+            "U",
+            "V",
+            "W",
+            "X",
+            "Y",
+            "Z"
+          ],
+          "head": "Question: {instructions}\nOptions:\n",
+          "option": "{label}. {text}",
+          "separator": "\n",
+          "tail": "\nAnswer with the letter only."
+        }
+      ],
+      "labels": "positional",
+      "rotate": "cyclic",
+      "listing": "request"
+    },
+    "score": {
+      "layouts": [
+        {
+          "max_options": 9,
+          "labels": [
+            "1",
+            "2",
+            "3",
+            "4",
+            "5",
+            "6",
+            "7",
+            "8",
+            "9"
+          ],
+          "head": "Question: {instructions}\nPick the level that applies (the levels are ordered):\n",
+          "option": "{label}. {text}",
+          "separator": "\n",
+          "tail": "\nAnswer with the number only."
+        },
+        {
+          "max_options": 10,
+          "labels": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E",
+            "F",
+            "G",
+            "H",
+            "I",
+            "J"
+          ],
+          "head": "Question: {instructions}\nPick the level that applies (the levels are ordered):\n",
+          "option": "{label}. {text}",
+          "separator": "\n",
+          "tail": "\nAnswer with the letter only."
+        }
+      ],
+      "labels": "positional",
+      "rotate": "none"
+    },
+    "noul": {
+      "layouts": [
+        {
+          "max_options": 2,
+          "labels": [
+            "No",
+            "Yes"
+          ],
+          "head": "Question: {instructions}{legend}\nAnswer ",
+          "option": "{label}",
+          "separator": " or ",
+          "tail": "."
+        }
+      ],
+      "labels": "attached",
+      "rotate": "cyclic",
+      "listing": [
+        "true",
+        "false"
+      ]
+    }
+  },
+  "rotations": {
+    "combine": "logmean",
+    "prior": {
+      "kind": "none"
+    }
+  },
+  "slot": "last",
+  "options": {
+    "choice": {
+      "described": "{name}: {description}",
+      "bare": "{name}"
+    },
+    "score": {
+      "described": "{description}"
+    },
+    "noul": {
+      "false": {
+        "described": "\nNo: {description}",
+        "bare": ""
+      },
+      "true": {
+        "described": "\nYes: {description}",
+        "bare": ""
+      }
+    }
+  },
+  "instructions": {
+    "required": true
+  },
+  "state": {
+    "json": "indent-2",
+    "messages": "role-content",
+    "empty": "(empty)"
+  },
+  "decode": {
+    "flash_attention": "disabled",
+    "kv_cache": "f32",
+    "ubatch": 2048
+  }
+}

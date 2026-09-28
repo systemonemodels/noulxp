@@ -1,0 +1,352 @@
+{
+  "standard": "odxp/0.2",
+  "package": {
+    "name": "nokia/anyjev-qwen3-1.7b:q8_0",
+    "profile": "causal-letters",
+    "path": "anyjev-qwen3-1.7b-q8",
+    "conformance_sha256": "2b950a7f26ae46d605c54a369920c02432d6e3e74a72ca1a318fc1a88382dbdc",
+    "weights_sha256": "061b54daade076b5d3362dac252678d17da8c68f07560be70818cace6590cb1a"
+  },
+  "runtime": {
+    "implementation": "opendxp 0.2.0",
+    "profile": "causal-letters",
+    "backend": "llama.cpp (llama-cpp-python 0.3.35)",
+    "gpu_offload": false,
+    "threads": 8,
+    "n_ctx": 8192,
+    "decode": {
+      "flash_attention": "disabled",
+      "kv_cache": "f32",
+      "ubatch": 2048
+    },
+    "device": "cpu"
+  },
+  "machine": {
+    "platform": "macOS-27.0-arm64-arm-64bit",
+    "machine": "arm64",
+    "processor": "Apple M4",
+    "cpus": 10,
+    "python": "3.12.13",
+    "onnxruntime_providers": [
+      "CoreMLExecutionProvider",
+      "AzureExecutionProvider",
+      "CPUExecutionProvider"
+    ],
+    "llama_cpp": "0.3.35",
+    "llama_gpu_offload": true
+  },
+  "tolerance": {
+    "max_abs_dp": 0.01,
+    "tie_margin": 0.001
+  },
+  "cases": 52,
+  "cases_passed": 35,
+  "questions": 90,
+  "max_abs_dp": 0.24576469931705947,
+  "mean_abs_dp": 0.014975097249037478,
+  "argmax_agreement": {
+    "agree": 88,
+    "total": 90
+  },
+  "errors": {
+    "expected": 1,
+    "matched": 1
+  },
+  "latency_ms": {
+    "load": 1337.5,
+    "request_median": 2199.76,
+    "request_p90": 8671.25,
+    "request_mean": 6023.35,
+    "question_median": 1043.17,
+    "input_tokens_mean": 501.04
+  },
+  "package_problems": [],
+  "coverage": {
+    "cases": 52,
+    "questions_by_type": {
+      "choice": 41,
+      "score": 20,
+      "noul": 30
+    },
+    "choice_option_counts": [
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      20
+    ],
+    "languages": [
+      "ar",
+      "de",
+      "en",
+      "es",
+      "fr",
+      "hi",
+      "ja",
+      "ne",
+      "pt",
+      "th",
+      "zh"
+    ],
+    "longest_state_chars": 6687,
+    "checks": {
+      "cases": true,
+      "question_types": true,
+      "choice_2_to_10_options": true,
+      "more_than_10_options": true,
+      "languages": true,
+      "long_state": true
+    },
+    "ok": true
+  },
+  "passed": false,
+  "compatible": false,
+  "failures": [
+    {
+      "id": "r04",
+      "ok": false,
+      "max_dp": 0.01192812377065211,
+      "questions": {
+        "recommend": {
+          "ok": false,
+          "dp": 0.01192812377065211,
+          "argmax_ok": true,
+          "expected_argmax": "true",
+          "observed_argmax": "true"
+        }
+      }
+    },
+    {
+      "id": "r05",
+      "ok": false,
+      "max_dp": 0.019736311151937927,
+      "questions": {
+        "component": {
+          "ok": false,
+          "dp": 0.019736311151937927,
+          "argmax_ok": true,
+          "expected_argmax": "payments",
+          "observed_argmax": "payments"
+        }
+      }
+    },
+    {
+      "id": "r08",
+      "ok": false,
+      "max_dp": 0.23027806674200585,
+      "questions": {
+        "action_needed": {
+          "ok": false,
+          "dp": 0.23027806674200585,
+          "argmax_ok": false,
+          "expected_argmax": "true",
+          "observed_argmax": "false"
+        }
+      }
+    },
+    {
+      "id": "r16",
+      "ok": false,
+      "max_dp": 0.12527627543066744,
+      "questions": {
+        "urgency": {
+          "ok": false,
+          "dp": 0.12527627543066744,
+          "argmax_ok": true,
+          "expected_argmax": "2",
+          "observed_argmax": "2"
+        }
+      }
+    },
+    {
+      "id": "r17",
+      "ok": false,
+      "max_dp": 0.15987941524782381,
+      "questions": {
+        "priority": {
+          "ok": false,
+          "dp": 0.15987941524782381,
+          "argmax_ok": true,
+          "expected_argmax": "2",
+          "observed_argmax": "2"
+        }
+      }
+    },
+    {
+      "id": "r21",
+      "ok": false,
+      "max_dp": 0.02817907162343669,
+      "questions": {
+        "enough": {
+          "ok": false,
+          "dp": 0.02817907162343669,
+          "argmax_ok": true,
+          "expected_argmax": "true",
+          "observed_argmax": "true"
+        }
+      }
+    },
+    {
+      "id": "r26",
+      "ok": false,
+      "max_dp": 0.039683840061441614,
+      "questions": {
+        "flexible": {
+          "ok": false,
+          "dp": 0.039683840061441614,
+          "argmax_ok": true,
+          "expected_argmax": "true",
+          "observed_argmax": "true"
+        }
+      }
+    },
+    {
+      "id": "r27",
+      "ok": false,
+      "max_dp": 0.01714436541928166,
+      "questions": {
+        "complexity": {
+          "ok": false,
+          "dp": 0.01714436541928166,
+          "argmax_ok": true,
+          "expected_argmax": "4",
+          "observed_argmax": "4"
+        }
+      }
+    },
+    {
+      "id": "r28",
+      "ok": false,
+      "max_dp": 0.0830827655989006,
+      "questions": {
+        "intent": {
+          "ok": false,
+          "dp": 0.0830827655989006,
+          "argmax_ok": true,
+          "expected_argmax": "अन्य",
+          "observed_argmax": "अन्य"
+        }
+      }
+    },
+    {
+      "id": "r29",
+      "ok": false,
+      "max_dp": 0.15578757431766432,
+      "questions": {
+        "question": {
+          "ok": false,
+          "dp": 0.15578757431766432,
+          "argmax_ok": true,
+          "expected_argmax": "false",
+          "observed_argmax": "false"
+        }
+      }
+    },
+    {
+      "id": "r30",
+      "ok": false,
+      "max_dp": 0.015644081587886882,
+      "questions": {
+        "severity": {
+          "ok": false,
+          "dp": 0.015644081587886882,
+          "argmax_ok": true,
+          "expected_argmax": "2",
+          "observed_argmax": "2"
+        }
+      }
+    },
+    {
+      "id": "r32",
+      "ok": false,
+      "max_dp": 0.011094781997941394,
+      "questions": {
+        "polite": {
+          "ok": false,
+          "dp": 0.011094781997941394,
+          "argmax_ok": true,
+          "expected_argmax": "false",
+          "observed_argmax": "false"
+        }
+      }
+    },
+    {
+      "id": "r34",
+      "ok": false,
+      "max_dp": 0.039112268953656826,
+      "questions": {
+        "disruption": {
+          "ok": false,
+          "dp": 0.039112268953656826,
+          "argmax_ok": true,
+          "expected_argmax": "false",
+          "observed_argmax": "false"
+        }
+      }
+    },
+    {
+      "id": "r36",
+      "ok": false,
+      "max_dp": 0.021767457420620806,
+      "questions": {
+        "intent": {
+          "ok": false,
+          "dp": 0.021767457420620806,
+          "argmax_ok": true,
+          "expected_argmax": "डिलीवरी की जानकारी",
+          "observed_argmax": "डिलीवरी की जानकारी"
+        }
+      }
+    },
+    {
+      "id": "r37",
+      "ok": false,
+      "max_dp": 0.023029728280710926,
+      "questions": {
+        "intent": {
+          "ok": false,
+          "dp": 0.023029728280710926,
+          "argmax_ok": true,
+          "expected_argmax": "cancelar",
+          "observed_argmax": "cancelar"
+        }
+      }
+    },
+    {
+      "id": "r40",
+      "ok": false,
+      "max_dp": 0.24576469931705947,
+      "questions": {
+        "shipped": {
+          "ok": false,
+          "dp": 0.24576469931705947,
+          "argmax_ok": false,
+          "expected_argmax": "true",
+          "observed_argmax": "false"
+        }
+      }
+    },
+    {
+      "id": "r43",
+      "ok": false,
+      "max_dp": 0.06888879468880302,
+      "questions": {
+        "before_shipping": {
+          "ok": false,
+          "dp": 0.06888879468880302,
+          "argmax_ok": true,
+          "expected_argmax": "false",
+          "observed_argmax": "false"
+        }
+      }
+    }
+  ],
+  "checked_at": "2026-09-28T20:43:35Z"
+}

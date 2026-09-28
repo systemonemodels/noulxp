@@ -69,7 +69,7 @@ class SharedPrefix(CausalLettersRuntime):
         self._decode(self.prefix, 0, 0, False)
         return super().distributions(state, questions)
 
-    def slot_logits(self, ids: list[int], count: int) -> np.ndarray:
+    def slot_logits(self, ids: list[int], label_ids: list[int]) -> np.ndarray:
         lc, n = self.lc, len(self.prefix)
         if ids[:n] != self.prefix or len(ids) == n:
             raise RuntimeError("a row does not continue the request's context piece")
@@ -80,7 +80,7 @@ class SharedPrefix(CausalLettersRuntime):
             lc.llama_get_logits_ith(self.ctx, len(ids) - n - 1), ctypes.POINTER(ctypes.c_float)
         )
         row = np.ctypeslib.as_array(pointer, shape=(self.n_vocab,))
-        return np.asarray(row[np.asarray(self.builder.label_ids[:count])], dtype=np.float64)
+        return np.asarray(row[np.asarray(label_ids)], dtype=np.float64)
 
 
 def run(runtime: Any, cases: list[dict[str, Any]]) -> dict[str, Any]:

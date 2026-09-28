@@ -6,7 +6,9 @@ concatenated, the options are lettered with the package's labels, and the
 answer is the softmax, at the calibrated temperature, of the logits of the
 offered labels' tokens at the last position. Score questions either list their
 levels as options, or ask one yes/no row per level ("isolated levels") and
-normalise the "yes" probabilities over the levels.
+normalise the "yes" probabilities over the levels. A 0.2 prompt may instead
+lay out each question type on its own, in a chat template and in rotation
+(profiles/typed.py).
 
 The weights are GGUF, run by llama.cpp through llama-cpp-python's low-level API:
 one row per decode, fresh memory for each row, logits only at the slot.
@@ -29,8 +31,10 @@ from opendxp.calibration import Calibration
 from opendxp.errors import BackendUnavailable, PackageError, RequestError
 from opendxp.package import Package
 from opendxp.profiles.encoder_markers import render_option
+from opendxp.profiles.typed import TypedBuilder, TypedLayouts, trie_tokens
 from opendxp.request import Question, parse_questions
-from opendxp.text import fill, state_text
+from opendxp.spec import at_least
+from opendxp.text import STATE_JSON, fill, render_state
 from opendxp.tokens import Tokens
 
 
@@ -49,6 +53,9 @@ def _silence(lc: Any) -> Any:
 
 
 ENCODINGS = ("joined", "split-at-label")
+# What a 0.1 prompt lays out for every type, and what a typed 0.2 prompt uses instead.
+SHARED_LAYOUT = ("question", "labels", "layouts", "score")
+TYPED_ONLY = ("chat", "rotations")
 # Decode settings that change the numbers llama.cpp computes (SPEC.md 6.6). A package
 # declares the ones its model's own engine uses; these are llama.cpp's defaults.
 DECODE_DEFAULTS = {"flash_attention": "auto", "kv_cache": "f16", "ubatch": 2048}
@@ -72,6 +79,42 @@ class Prompt:
             raise PackageError("prompt.json: context.template must contain {state}")
         self.context = context["template"]
         self.context_max = context.get("max_tokens")
+        state = data.get("state") or {}
+        if state.get("json", "compact") not in STATE_JSON:
+            raise PackageError(f"prompt.json: state.json must be one of {', '.join(STATE_JSON)}")
+        if state.get("messages", "role-content") != "role-content":
+            raise PackageError('prompt.json: state.messages can only be "role-content"')
+        newer = [k for k in ("json", "messages", "empty") if k in state]
+        newer += [k for k in ("types", *TYPED_ONLY) if k in data]
+        if newer and not at_least(data.get("standard"), "odxp/0.2"):
+            raise PackageError(f"prompt.json: {', '.join(newer)} need odxp/0.2")
+        self.typed: TypedLayouts | None = None
+        if "types" in data:
+            mixed = [k for k in SHARED_LAYOUT if k in data]
+            if mixed:
+                raise PackageError(f"prompt.json: a typed prompt has no {', '.join(mixed)}")
+            if self.context_max:
+                raise PackageError(
+                    "prompt.json: a typed prompt encodes each row whole, so it has no "
+                    "context.max_tokens"
+                )
+            self.typed = TypedLayouts(data)
+        else:
+            if any(k in data for k in TYPED_ONLY):
+                raise PackageError("prompt.json: chat and rotations need typed layouts (types)")
+            self._one_layout(data)
+        if data.get("slot", "last") != "last":
+            raise PackageError('prompt.json: only the "last" answer slot is defined')
+        self.decode = {**DECODE_DEFAULTS, **(data.get("decode") or {})}
+        if self.decode["flash_attention"] not in ("auto", "enabled", "disabled"):
+            raise PackageError(
+                "prompt.json: decode.flash_attention must be auto, enabled or disabled"
+            )
+        if self.decode["kv_cache"] not in ("f16", "f32"):
+            raise PackageError("prompt.json: decode.kv_cache must be f16 or f32")
+
+    def _one_layout(self, data: dict[str, Any]) -> None:
+        """The 0.1 layout: one question template and one list of labels for every type."""
         question = data.get("question") or {}
         for key in ("head", "option", "tail"):
             if not isinstance(question.get(key), str):
@@ -88,8 +131,6 @@ class Prompt:
             raise PackageError("prompt.json: layouts must name an encoding for each option range")
         if int(self.layouts[-1]["max_options"]) > len(self.labels):
             raise PackageError("prompt.json: a layout allows more options than there are labels")
-        if data.get("slot", "last") != "last":
-            raise PackageError('prompt.json: only the "last" answer slot is defined in odxp/0.1')
         self.score = dict(data.get("score") or {"mode": "list"})
         if self.score.get("mode") not in ("list", "isolated"):
             raise PackageError('prompt.json: score.mode must be "list" or "isolated"')
@@ -102,13 +143,12 @@ class Prompt:
                 re.compile(self.score["level_strip"]) if self.score.get("level_strip") else None
             )
         self.max_options = int(self.layouts[-1]["max_options"])
-        self.decode = {**DECODE_DEFAULTS, **(data.get("decode") or {})}
-        if self.decode["flash_attention"] not in ("auto", "enabled", "disabled"):
-            raise PackageError(
-                "prompt.json: decode.flash_attention must be auto, enabled or disabled"
-            )
-        if self.decode["kv_cache"] not in ("f16", "f32"):
-            raise PackageError("prompt.json: decode.kv_cache must be f16 or f32")
+
+    def options_limit(self, kind: str) -> int:
+        """The most options this prompt lays out for a question of this type."""
+        if self.typed is not None:
+            return self.typed.types[kind].max_options
+        return self.max_options
 
     def instructions(self, question: Question) -> str:
         spec = self.data.get("instructions") or {}
@@ -139,8 +179,8 @@ class Builder:
             raise PackageError("two labels encode to the same token")
 
     def context(self, state: Any) -> list[int]:
-        index_from = (self.prompt.data.get("state") or {}).get("index_arrays_from")
-        ids = self.tokens.encode(fill(self.prompt.context, state=state_text(state, index_from)))
+        text = render_state(state, self.prompt.data.get("state"))
+        ids = self.tokens.encode(fill(self.prompt.context, state=text))
         if self.prompt.context_max:
             ids = ids[: int(self.prompt.context_max)]
         return ids
@@ -210,7 +250,11 @@ class CausalLettersRuntime:
         self.package = package
         self.prompt = Prompt(package.read_json("prompt"))
         self.tokens = Tokens(package.file("tokenizer"))
-        self.builder = Builder(self.prompt, self.tokens)
+        self.builder: Builder | TypedBuilder = (
+            TypedBuilder(self.prompt, self.tokens)
+            if self.prompt.typed is not None
+            else Builder(self.prompt, self.tokens)
+        )
         self.calibration = Calibration(package.read_json("calibration"))
         self.rules = package.confidence_rules
         self.limits = package.limits
@@ -264,8 +308,8 @@ class CausalLettersRuntime:
             "decode": self.prompt.decode,
         }
 
-    def slot_logits(self, ids: list[int], count: int) -> np.ndarray:
-        """The logits of the first `count` labels at the last position of `ids`."""
+    def slot_logits(self, ids: list[int], label_ids: list[int]) -> np.ndarray:
+        """The logits of the tokens `label_ids` at the last position of `ids`."""
         lc = self.lc
         if len(ids) > self.n_ctx:
             raise RequestError(
@@ -286,21 +330,27 @@ class CausalLettersRuntime:
             lc.llama_get_logits_ith(self.ctx, last), ctypes.POINTER(ctypes.c_float)
         )
         row = np.ctypeslib.as_array(pointer, shape=(self.n_vocab,))
-        return np.asarray(row[np.asarray(self.builder.label_ids[:count])], dtype=np.float64)
+        return np.asarray(row[np.asarray(label_ids)], dtype=np.float64)
+
+    def checked(self, questions: Any) -> list[Question]:
+        """The request's questions, each within the options this model reads."""
+        parsed = parse_questions(questions)
+        max_levels = self.limits.get("max_levels")
+        for q in parsed:
+            most = min(self.prompt.options_limit(q.type), self.limits.get("max_options", 1 << 30))
+            if len(q.options) > most:
+                raise RequestError(f"question {q.id!r} has more than {most} options")
+            if max_levels and q.type == "score" and len(q.options) > max_levels:
+                raise RequestError(f"question {q.id!r} has more than {max_levels} levels")
+        return parsed
 
     def distributions(
         self, state: Any, questions: Any
     ) -> tuple[list[tuple[Question, list[float]]], dict[str, int]]:
-        parsed = parse_questions(questions)
-        max_options = min(self.prompt.max_options, self.limits.get("max_options", 1 << 30))
-        max_levels = self.limits.get("max_levels")
-        planned = []
-        for q in parsed:
-            if len(q.options) > max_options:
-                raise RequestError(f"question {q.id!r} has more than {max_options} options")
-            if max_levels and q.type == "score" and len(q.options) > max_levels:
-                raise RequestError(f"question {q.id!r} has more than {max_levels} levels")
-            planned.append((q, *self.builder.rows(q)))
+        if isinstance(self.builder, TypedBuilder):
+            return self.typed_distributions(state, questions)
+        parsed = self.checked(questions)
+        planned = [(q, *self.builder.rows(q)) for q in parsed]
         context = self.builder.context(state)
         pieces: list[list[int]] = []
         for _q, _kind, rows in planned:
@@ -313,7 +363,8 @@ class CausalLettersRuntime:
             for _text, options in rows:
                 ids = context + pieces[n]
                 n += 1
-                probs.append(softmax(self.slot_logits(ids, len(options)).tolist(), t))
+                logits = self.slot_logits(ids, self.builder.label_ids[: len(options)])
+                probs.append(softmax(logits.tolist(), t))
             if kind == "isolated":
                 read = int(self.prompt.score["read"])
                 fit = [row[read] for row in probs]
@@ -323,6 +374,23 @@ class CausalLettersRuntime:
                 out.append((q, probs[0]))
         usage = {"input_tokens": unique_tokens(len(context), pieces), "output_tokens": 0}
         return out, usage
+
+    def typed_distributions(
+        self, state: Any, questions: Any
+    ) -> tuple[list[tuple[Question, list[float]]], dict[str, int]]:
+        """Typed layouts (SPEC.md 6.7, 6.8): a row per rotation, combined per option."""
+        builder = self.builder
+        assert isinstance(builder, TypedBuilder)
+        parsed = self.checked(questions)
+        asked = [builder.ask(q) for q in parsed]
+        state_text = builder.state(state)
+        out, read = [], []
+        for q, a in zip(parsed, asked, strict=True):
+            t = self.calibration.temperature(q.type, len(q.options))
+            p, rows = builder.distribution(state_text, a, self.slot_logits, t)
+            out.append((q, p))
+            read += rows
+        return out, {"input_tokens": trie_tokens(read), "output_tokens": 0}
 
     def predict(self, state: Any, questions: Any, decimals: int | None = 4) -> dict[str, Any]:
         dists, usage = self.distributions(state, questions)

@@ -31,6 +31,11 @@ def validate_package(path: Path, *, hashes: bool = True) -> list[str]:
             problems.append(str(exc))
             continue
         problems += [f"{package.entry(key)['path']} {e}" for e in errors(data, key)]
+        if isinstance(data, dict) and data.get("standard") != package.manifest.get("standard"):
+            problems.append(
+                f"{package.entry(key)['path']} declares {data.get('standard')!r}, "
+                f"the manifest {package.manifest.get('standard')!r}"
+            )
         try:
             if key == "template":
                 from opendxp.profiles.encoder_markers import Template

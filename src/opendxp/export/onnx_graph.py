@@ -16,7 +16,7 @@ from typing import Any
 
 from opendxp.export.common import safetensors_index
 from opendxp.profiles.encoder_markers import INPUTS, OUTPUT
-from opendxp.spec import STANDARD
+from opendxp.spec import BASE
 
 WEIGHTS_NAME = "model.safetensors"
 GRAPH_NAME = "model.onnx"
@@ -154,7 +154,7 @@ def export_graph(
         )
     model.producer_name = "opendxp"
     model.metadata_props.update(
-        {"odxp.standard": STANDARD, "odxp.profile": "encoder-markers", **(metadata or {})}
+        {"odxp.standard": BASE, "odxp.profile": "encoder-markers", **(metadata or {})}
     )
     out_dir.mkdir(parents=True, exist_ok=True)
     ir.save(model, str(out_dir / GRAPH_NAME))

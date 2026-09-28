@@ -18,7 +18,7 @@ from typing import Any
 
 from opendxp.export.common import entry, manifest, place, write_json, write_manifest
 from opendxp.export.encoder import calibration_ok
-from opendxp.spec import QUESTION_TYPES, STANDARD
+from opendxp.spec import BASE, QUESTION_TYPES
 from opendxp.tokens import Tokens
 
 NARROW = 10
@@ -45,7 +45,7 @@ def labels(tokens: Tokens, count: int) -> list[str]:
 
 def prompt(cfg: dict[str, Any], label_list: list[str]) -> dict[str, Any]:
     return {
-        "standard": STANDARD,
+        "standard": BASE,
         "profile": "causal-letters",
         "context": {
             "template": "Context:\n{state}",
@@ -93,7 +93,7 @@ def calibration(cfg: dict[str, Any]) -> dict[str, Any]:
     by_type = cfg.get("temperature_by_type") or {}
     return calibration_ok(
         {
-            "standard": STANDARD,
+            "standard": BASE,
             "temperature": {t: float(by_type.get(t, default)) for t in QUESTION_TYPES},
             "source": {
                 "file": "decider_config.json",

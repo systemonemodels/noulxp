@@ -22,9 +22,9 @@ over the Model Context Protocol between an AI agent and a tool (`opendxp mcp`).
 It is to decision models what MCP is to agent tools: one way to ask any model,
 on any machine.
 
-- [SPEC.md](https://github.com/systemonemodels/opendxp/blob/main/SPEC.md): the standard, version 0.1
+- [SPEC.md](https://github.com/systemonemodels/opendxp/blob/main/SPEC.md): the standard, version 0.2
 - [schemas/](https://github.com/systemonemodels/opendxp/tree/main/schemas): JSON Schemas for every file in a package
-- [VALIDATION.md](https://github.com/systemonemodels/opendxp/blob/main/VALIDATION.md): Laya, Julia 1 and Decider converted and checked
+- [VALIDATION.md](https://github.com/systemonemodels/opendxp/blob/main/VALIDATION.md): Laya, Julia 1, Decider and AnyJev converted and checked
 - [badge/BADGE.md](https://github.com/systemonemodels/opendxp/blob/main/badge/BADGE.md): the "OpenDXP compatible" badge and its criteria
 - [PAPER.md](https://github.com/systemonemodels/opendxp/blob/main/PAPER.md): outline of the paper, and which experiments are done
 
@@ -39,11 +39,19 @@ runs OpenDXP packages and shows which models are OpenDXP compatible.
 | Profile | Models | Weights | The engine reads |
 | --- | --- | --- | --- |
 | `encoder-markers` | Laya, Julia 1, Von, open-jev, GLiNER2.5-Decide | ONNX | `template.json`: how to build the token ids and one marker position per option |
-| `causal-letters` | Decider, Kev, Nimble, JevK5, lev | GGUF | `prompt.json`: the prompt pieces, the option labels and where the answer letter is read |
+| `causal-letters` | Decider, AnyJev, Kev, Nimble, JevK5, lev | GGUF | `prompt.json`: the prompt pieces, the option labels and where the answer letter is read |
 
 ONNX runs through ONNX Runtime (CPU, CUDA, Core ML, OpenVINO, QNN, DirectML);
 GGUF through llama.cpp (CPU, Metal, CUDA, HIP, SYCL, Vulkan). The engine picks
 the device, not the model's author.
+
+New in 0.2, a causal-letters prompt can lay out each question type on its own,
+inside the model's chat template, and ask a question once per cyclic shift of
+its options, combining the shifts per option so that no option wins by its
+position. That is how [AnyJev](https://github.com/nokia-applied-research/AnyJev)
+(Nokia) turns an instruction-tuned language model into a decision model
+without training it: `opendxp export anyjev` packages such a model, and
+AnyJev's own code writes its conformance file.
 
 ## What is here
 
@@ -55,11 +63,11 @@ The `opendxp` Python package (Python 3.11+) is the reference implementation:
   DirectML are used when named (`--device coreml`), and it compiles shape
   buckets for providers that need fixed shapes. The causal runtime drives llama.cpp's low-level API, one
   row per decode, with every layer on the GPU when the build has one.
-- **Converters** for Laya, Julia 1 and Decider (`opendxp export`).
+- **Converters** for Laya, Julia 1, Decider and AnyJev (`opendxp export`).
 - **The models' own inference** for writing conformance files
-  (`opendxp.native`): Laya through the `laya` package; Julia 1 and Decider
-  through faithful rebuilds of their authors' code, checked on the authors'
-  published cases.
+  (`opendxp.native`): Laya through the `laya` package, AnyJev through the
+  `anyjev` package; Julia 1 and Decider through faithful rebuilds of their
+  authors' code, checked on the authors' published cases.
 - **Servers** for the two bindings: `opendxp serve` answers requests over HTTP
   on any machine, and `opendxp mcp` gives every package to AI agents as an MCP
   tool.
@@ -74,6 +82,7 @@ The `opendxp` Python package (Python 3.11+) is the reference implementation:
 pip install "opendxp[onnx]"          # encoder-markers runtime (ONNX Runtime)
 pip install "opendxp[gguf]"          # causal-letters runtime (llama-cpp-python)
 pip install "opendxp[export,laya]"   # converters (torch, transformers, onnx, onnxscript, laya)
+pip install "opendxp[gguf,anyjev]"   # AnyJev: its converter and its own Decider (anyjev, torch, transformers)
 ```
 
 From a clone, for development:
@@ -160,6 +169,8 @@ It speaks both eras of MCP: the current revision (per-request metadata,
 opendxp export laya    ckpt/laya-typed-decisions   packages/laya-typed-decisions
 opendxp export julia   ckpt/julia-1                packages/julia-1
 opendxp export decider ckpt/decider-2b-gguf        packages/decider-2b
+opendxp export anyjev  ckpt/qwen3-1.7b             packages/anyjev-qwen3-1.7b \
+    --gguf ckpt/Qwen3-1.7B-F16.gguf --base Qwen/Qwen3-1.7B   # llama.cpp's convert_hf_to_gguf.py --outtype f16
 
 # 2. Record what the model's own code answers (on the CPU).
 opendxp conformance generate packages/julia-1 --native ckpt/julia-1 --runtime julia
@@ -170,16 +181,18 @@ opendxp check packages/julia-1 --device coreml    # a backend: Core ML
 opendxp validate packages/julia-1                 # schemas, parsers, coverage, hashes
 ```
 
-`--runtime laya` uses the `laya` package (the `laya` extra);
-`julia` and `decider` use `opendxp.native` (with the `export` extra, and
-llama-cpp-python for Decider).
+`--runtime laya` uses the `laya` package (the `laya` extra) and
+`--runtime anyjev` the `anyjev` package (the `anyjev` extra); `julia` and
+`decider` use `opendxp.native` (with the `export` extra, and llama-cpp-python
+for Decider).
 
 ## Make your model OpenDXP compatible
 
 1. **Pick the profile.** If your model scores a marker token per option with a
    bidirectional encoder, it is `encoder-markers`. If it is a language model
    that reads the probability of option letters after a prompt, it is
-   `causal-letters`.
+   `causal-letters`; an instruction-tuned model asked in its chat template,
+   in rotation, uses the typed layouts of SPEC.md 6.7 and 6.8.
 2. **Export the weights.** encoder-markers: ONNX with the signature in SPEC.md
    5.4 (`input_ids`, `attention_mask`, `marker_positions`, `marker_mask`,
    `question_type` → `option_logits`), dynamic dimensions named `batch`,
@@ -210,8 +223,11 @@ pytest
 The tests port the models' own input construction verbatim (Laya's
 `build_sequence`, Julia's `sequence()`, Decider's prompt builder) and require
 the declarative templates to give the same token ids, marker positions and
-refusals on hundreds of random requests. A toy ONNX graph with the standard
-signature exercises generate and check end to end. Nothing is downloaded.
+refusals on hundreds of random requests. For AnyJev they run its own code
+(its core is numpy alone): its prompts, chat rendering and Decider on a fake
+model, which the typed layouts and rotations must match row for row and to
+1e-12 in probability. A toy ONNX graph with the standard signature exercises
+generate and check end to end. Nothing is downloaded.
 
 ## Licence
 

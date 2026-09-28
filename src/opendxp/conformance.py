@@ -26,7 +26,7 @@ from opendxp import __version__
 from opendxp.errors import OpenDXPError, RequestError
 from opendxp.package import open_package, sha256_file
 from opendxp.request import parse_questions
-from opendxp.spec import MIN_CASES, STANDARD, TIE_MARGIN, TOLERANCE
+from opendxp.spec import MIN_CASES, TIE_MARGIN, TOLERANCE
 
 CONFORMANCE_FILE = "conformance.jsonl"
 DATA = Path(__file__).parent / "data"
@@ -261,7 +261,7 @@ def check(
     cov = coverage(cases)
     passed = not failures and not problems
     report = {
-        "standard": STANDARD,
+        "standard": package.manifest["standard"],
         "package": {
             "name": package.name,
             "profile": package.profile,

@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:odxp:0.1:template",
+  "$id": "urn:odxp:0.2:template",
   "title": "encoder-markers input construction (template.json)",
   "description": "How the reference runtime builds the token ids and marker positions for one question. SPEC.md section 5.",
   "type": "object",
   "required": ["standard", "profile", "special_tokens", "question_type_ids", "layout", "head", "options", "budgets", "truncation"],
   "properties": {
-    "standard": {"const": "odxp/0.1"},
+    "standard": {"enum": ["odxp/0.1", "odxp/0.2"]},
     "profile": {"const": "encoder-markers"},
     "special_tokens": {
       "type": "object",

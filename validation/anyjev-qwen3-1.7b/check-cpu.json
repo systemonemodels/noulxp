@@ -1,0 +1,113 @@
+{
+  "standard": "odxp/0.2",
+  "package": {
+    "name": "nokia/anyjev-qwen3-1.7b",
+    "profile": "causal-letters",
+    "path": "anyjev-qwen3-1.7b",
+    "conformance_sha256": "2b950a7f26ae46d605c54a369920c02432d6e3e74a72ca1a318fc1a88382dbdc",
+    "weights_sha256": "783feaea3b6793cff557da5de6de42c850e5ea5f679999ff3c7087d631d4dc24"
+  },
+  "runtime": {
+    "implementation": "opendxp 0.2.0",
+    "profile": "causal-letters",
+    "backend": "llama.cpp (llama-cpp-python 0.3.35)",
+    "gpu_offload": false,
+    "threads": 8,
+    "n_ctx": 8192,
+    "decode": {
+      "flash_attention": "disabled",
+      "kv_cache": "f32",
+      "ubatch": 2048
+    },
+    "device": "cpu"
+  },
+  "machine": {
+    "platform": "macOS-27.0-arm64-arm-64bit",
+    "machine": "arm64",
+    "processor": "Apple M4",
+    "cpus": 10,
+    "python": "3.12.13",
+    "onnxruntime_providers": [
+      "CoreMLExecutionProvider",
+      "AzureExecutionProvider",
+      "CPUExecutionProvider"
+    ],
+    "llama_cpp": "0.3.35",
+    "llama_gpu_offload": true
+  },
+  "tolerance": {
+    "max_abs_dp": 0.01,
+    "tie_margin": 0.001
+  },
+  "cases": 52,
+  "cases_passed": 52,
+  "questions": 90,
+  "max_abs_dp": 0.0053620870391205555,
+  "mean_abs_dp": 0.0002820566761514065,
+  "argmax_agreement": {
+    "agree": 90,
+    "total": 90
+  },
+  "errors": {
+    "expected": 1,
+    "matched": 1
+  },
+  "latency_ms": {
+    "load": 303.0,
+    "request_median": 3093.8,
+    "request_p90": 9242.24,
+    "request_mean": 6510.28,
+    "question_median": 1546.9,
+    "input_tokens_mean": 501.04
+  },
+  "package_problems": [],
+  "coverage": {
+    "cases": 52,
+    "questions_by_type": {
+      "choice": 41,
+      "score": 20,
+      "noul": 30
+    },
+    "choice_option_counts": [
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      20
+    ],
+    "languages": [
+      "ar",
+      "de",
+      "en",
+      "es",
+      "fr",
+      "hi",
+      "ja",
+      "ne",
+      "pt",
+      "th",
+      "zh"
+    ],
+    "longest_state_chars": 6687,
+    "checks": {
+      "cases": true,
+      "question_types": true,
+      "choice_2_to_10_options": true,
+      "more_than_10_options": true,
+      "languages": true,
+      "long_state": true
+    },
+    "ok": true
+  },
+  "passed": true,
+  "compatible": true,
+  "failures": [],
+  "checked_at": "2026-09-28T20:36:24Z"
+}

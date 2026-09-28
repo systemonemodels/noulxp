@@ -1,0 +1,11 @@
+{
+  "standard": "odxp/0.2",
+  "temperature": {
+    "choice": 1.0,
+    "score": 1.0,
+    "noul": 1.0
+  },
+  "source": {
+    "rule": "AnyJev L0 reads the label logits at temperature 1; its L1 temperatures are fit per question on labels, not per model"
+  }
+}

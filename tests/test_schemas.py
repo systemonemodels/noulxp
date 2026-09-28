@@ -69,7 +69,8 @@ def _manifest(**overrides):  # type: ignore[no-untyped-def]
 
 def test_manifest_rules():
     assert errors(_manifest(), "manifest") == []
-    assert errors(_manifest(standard="odxp/0.2"), "manifest")
+    assert errors(_manifest(standard="odxp/0.2"), "manifest") == []
+    assert errors(_manifest(standard="odxp/0.3"), "manifest")
     assert errors(_manifest(profile="causal-letters"), "manifest")  # needs prompt and gguf
     assert errors(_manifest(tokenizer={"path": "../tokenizer.json", "sha256": SHA}), "manifest")
     assert errors(_manifest(tokenizer={"path": "/etc/passwd", "sha256": SHA}), "manifest")

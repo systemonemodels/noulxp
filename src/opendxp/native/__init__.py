@@ -9,6 +9,8 @@ here must be that code and nothing rewritten for OpenDXP:
              authors' 100 parity cases)
     decider  opendxp.native.decider: decider-ai's engine_gguf readout of the
              official GGUF through llama.cpp, every row decoded in full
+    anyjev   opendxp.native.anyjev: anyjev's Decider at L0 on its transformers
+             backend, in float32, set up as the package's prompt.json declares
 
 Everything runs on the CPU: that is the reference.
 """
@@ -22,7 +24,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-NATIVE_RUNTIMES = ("laya", "julia", "decider")
+NATIVE_RUNTIMES = ("laya", "julia", "decider", "anyjev")
 
 
 @dataclass
@@ -59,6 +61,7 @@ def load_native(
     checkpoint: str | Path,
     *,
     threads: int = 4,
+    package: str | Path | None = None,
 ) -> NativeModel:
     checkpoint = Path(checkpoint)
     if runtime == "laya":
@@ -113,6 +116,28 @@ def load_native(
                     for lib in ("llama_cpp_python", "transformers", "tokenizers", "numpy")
                 },
                 "decoding": "each row in full",
+                "threads": threads,
+                "device": "cpu",
+            },
+        )
+    if runtime == "anyjev":
+        from opendxp.native import anyjev
+
+        model = anyjev.AnyJev.load(
+            checkpoint, threads=threads, package=Path(package) if package else None
+        )
+        return NativeModel(
+            "anyjev",
+            model.system_one,
+            provenance={
+                "runtime": "anyjev",
+                "code": "anyjev.Decider(level='L0') on anyjev.backends.hf.HFBackend",
+                "adapter": "opendxp.native.anyjev.AnyJev",
+                "adapter_sha256": _sha256(anyjev.__file__),
+                "settings": model.settings,
+                **{lib: _version(lib) for lib in ("anyjev", "torch", "transformers", "tokenizers")},
+                "dtype": "float32",
+                "batch_size": 1,
                 "threads": threads,
                 "device": "cpu",
             },

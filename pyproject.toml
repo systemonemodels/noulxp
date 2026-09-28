@@ -40,7 +40,10 @@ export = [
   "onnx-ir>=0.1.15",
 ]
 laya = ["laya==0.3.5"]
-dev = ["pytest>=8", "ruff>=0.6", "onnx>=1.17", "onnxruntime>=1.20"]
+# AnyJev (Nokia): its Decider writes the conformance file, transformers renders the chat template.
+anyjev = ["anyjev[hf]==0.2.0"]
+# anyjev's core is numpy alone: the tests run its Decider on a fake model.
+dev = ["pytest>=8", "ruff>=0.6", "onnx>=1.17", "onnxruntime>=1.20", "anyjev==0.2.0"]
 
 [project.scripts]
 opendxp = "opendxp.cli:main"

@@ -1,6 +1,7 @@
 # Validation
 
-Laya, Julia 1 and Decider converted to OpenDXP 0.1 packages and checked against
+Laya, Julia 1 and Decider converted to OpenDXP 0.1 packages, and AnyJev
+(Nokia's L0, on Qwen3-1.7B) to an OpenDXP 0.2 package, and checked against
 their own code. Every number here comes from a report in
 [validation/](validation/): for each package its `odxp.json`, its template or
 prompt, `calibration.json`, `conformance.jsonl` and the check reports. The
@@ -8,21 +9,25 @@ weights are not copied there; they are the published files, and each manifest
 names them by SHA-256.
 
 Machine: Apple M4 (10 cores), macOS 27, Python 3.12.13, onnxruntime 1.30.0,
-llama-cpp-python 0.3.35 (llama.cpp with Metal), 4 threads for llama.cpp.
+llama-cpp-python 0.3.35 (llama.cpp with Metal), 4 threads for llama.cpp. For
+AnyJev: anyjev 0.2.0, torch 2.14.0, transformers 5.17.0, 8 threads.
 
 ## Method
 
 1. **Convert** with `opendxp export`. The encoder-markers graphs point at the
    checkpoint's `model.safetensors` as ONNX external data (SPEC.md 4.3), so a
    package adds a 3 to 5 MB graph and copies no weights. Decider's package is
-   its official Q8_0 GGUF, unchanged.
+   its official Q8_0 GGUF, unchanged. AnyJev's is Qwen3-1.7B's published BF16
+   weights as an F16 GGUF (llama.cpp's `convert_hf_to_gguf.py`), since AnyJev
+   runs the model's own weights.
 2. **Record what the model's own code answers.** `opendxp conformance generate`
    runs the native runtime on the CPU over the OpenDXP 0.1 request set: 52
    requests, 91 questions, 11 languages (Nepali and Thai among them), 2 to 20
    options, a 6,687-character state, and two requests a model may refuse. Laya
-   runs through the `laya` package; Julia 1 and Decider through
-   `opendxp.native`, rebuilds of their authors' inference code (Decider decoding
-   each row in full, as its own GGUF engine does).
+   runs through the `laya` package and AnyJev through the `anyjev` package (its
+   Decider at L0, on transformers in float32, every rotation read); Julia 1 and
+   Decider through `opendxp.native`, rebuilds of their authors' inference code
+   (Decider decoding each row in full, as its own GGUF engine does).
 3. **Replay it through the reference runtime** with `opendxp check`: on the CPU
    for level 2 (OpenDXP compatible), and on an accelerator backend for level 3.
 
@@ -42,11 +47,20 @@ code at the precision it records.
 | julia-1-official | encoder-markers | ONNX Runtime, CPU | 52/52 | 89 + 2 refusals | 5.2e-5 | 3.0e-5 | 89/89 | level 2 |
 | decider-2b | causal-letters | llama.cpp, CPU | 52/52 | 91 | 5.0e-5 | 3.5e-5 | 91/91 | level 2 |
 | decider-2b | causal-letters | llama.cpp, Metal | 43/52 | 91 | 0.036 | 0.0041 | 91/91 | not level 3 |
+| anyjev-qwen3-1.7b | causal-letters, typed (0.2) | llama.cpp, CPU | 52/52 | 90 + 1 refusal | 5.4e-3 | 2.8e-4 | 90/90 | level 2 |
+| anyjev-qwen3-1.7b:q8_0 | causal-letters, typed (0.2) | llama.cpp, CPU | 35/52 | 90 + 1 refusal | 0.25 | 0.015 | 88/90 | derived, not level 2 |
 
 Julia 1 refuses two requests of the set, and the reference runtime refuses the
 same two: one puts Julia's marker token in the state (its template says
 `reject`; Laya's says `replace`), one has an option longer than Julia's
 48-token limit.
+
+AnyJev records its probabilities unrounded, so its differences are llama.cpp's
+arithmetic against transformers' float32, not a rounding floor. It refuses one
+request of the set, and the reference runtime refuses it too: a noul without
+instructions (r51). An AnyJev question is its text, so the mapping and the
+package both require instructions. `anyjev-qwen3-1.7b:q8_0` is the same
+package with Qwen's own Q8_0 GGUF (below).
 
 `julia-1-official` is the graph Supersonic Labs publish
 (`SupersonicLabs/Julia-1-ONNX/model.onnx`), not an export of ours: its inputs
@@ -68,6 +82,13 @@ one to four questions; mean input 213 to 273 tokens).
 | julia-1 | Core ML | 0.07 s | 42 ms | 114 ms | 21 ms |
 | decider-2b | CPU | 1.69 s | 624 ms | 2.84 s | 440 ms |
 | decider-2b | Metal | 0.34 s | 343 ms | 1.42 s | 238 ms |
+| anyjev-qwen3-1.7b | CPU | 0.30 s | 3.09 s | 9.24 s | 1.55 s |
+
+AnyJev reads a choice once per rotation, so a question with k options is k
+rows (the set has 2 to 20), each about 500 tokens with the chat template, each
+decoded from empty memory with the f32 cache the package declares. The rows of
+a question share their start (system prompt, state, question), which an engine
+may decode once only within the tolerance (SPEC.md 8).
 
 Core ML compiles one fixed shape per bucket the first time it meets it; the
 mean (262 ms) includes those compilations, the median does not. On this
@@ -82,6 +103,41 @@ Decider's own prompt code and its Hugging Face tokenizer through
 `transformers`, and with the package's `prompt.json` and `tokenizers` alone.
 149 rows, 0 differences, and the same option label tokens
 ([token-ids.json](validation/decider-2b/token-ids.json)).
+
+### AnyJev's prompt, token for token
+
+`scripts/anyjev_token_ids.py` builds every row AnyJev reads for the request
+set twice: with anyjev 0.2.0's own `build_prompt`, `render_chat` and
+`resolve_labels` and Qwen3's tokenizer through `transformers`, and with the
+package's `prompt.json` and `tokenizers` alone. 286 rows (every rotation of
+the 90 questions AnyJev takes), 0 differences, and the same label tokens in
+every rotation ([token-ids.json](validation/anyjev-qwen3-1.7b/token-ids.json)).
+The unit tests go further on a fake model: AnyJev's own Decider and the
+reference runtime agree to 1e-12 on random requests and states (text, JSON,
+conversations, empty), with and without a content-free prior, combined by
+log-mean and by mean, in the request's and the canonical order.
+
+### What moves AnyJev's probabilities
+
+AnyJev's own engine runs the model in float32. The F16 GGUF holds the
+published BF16 weights exactly, so what remains is llama.cpp's arithmetic
+([check-cpu.json](validation/anyjev-qwen3-1.7b/check-cpu.json),
+[default decode](validation/anyjev-qwen3-1.7b/check-cpu-default-decode.json),
+[Q8_0](validation/anyjev-qwen3-1.7b/check-cpu-q8_0.json)):
+
+| Weights | Decode | Cases | Argmax | max \|dp\| | mean \|dp\| |
+| --- | --- | --- | --- | --- | --- |
+| F16 | f32 cache, flash attention off (declared) | 52/52 | 90/90 | 0.0054 | 0.00028 |
+| F16 | f16 cache, flash attention auto (llama.cpp's defaults) | 51/52 | 90/90 | 0.012 | 0.00054 |
+| Qwen's Q8_0 | declared | 35/52 | 88/90 | 0.25 | 0.015 |
+
+With llama.cpp's defaults one probability (r26, question `cancel`) moves by
+0.0116, just past the tolerance; with the cache in f32 and attention unfused
+every case passes, so the package declares those settings (SPEC.md 6.6).
+Quantising the weights is another matter: Qwen's Q8_0 file changes two
+decisions of 90 (r08 `action_needed`, r40 `shipped`) and moves 17 cases past
+0.01. It is a derived package (SPEC.md 10), a smaller file for serving that
+does not reach level 2.
 
 ### Julia 1 on its authors' parity cases
 
@@ -139,8 +195,10 @@ reference runtime decodes every row in full. Sharing is a serving choice, outsid
 The checkpoints are the makers' own, from Hugging Face: convaiinnovations/laya
 (the root and its `multilingual/` and `typed-decisions/` folders),
 SupersonicLabs/Julia-1, SupersonicLabs/Julia-1-ONNX (`model.onnx`,
-`parity-cases.json`) and Mapika/decider-2b-GGUF (`decider-2b-v11-Q8_0.gguf`
-with its tokenizer and `decider_config.json`).
+`parity-cases.json`), Mapika/decider-2b-GGUF (`decider-2b-v11-Q8_0.gguf`
+with its tokenizer and `decider_config.json`), and for AnyJev Qwen/Qwen3-1.7B
+(revision 70d244c) and Qwen/Qwen3-1.7B-GGUF (`Qwen3-1.7B-Q8_0.gguf`), with
+anyjev 0.2.0 from PyPI.
 
 ```bash
 opendxp export laya ckpt/laya/typed-decisions packages/laya-typed-decisions --name convai-innovations/laya:typed-decisions
@@ -153,6 +211,12 @@ python scripts/decider_token_ids.py packages/decider-2b ckpt/decider-2b
 python scripts/julia_parity.py packages/julia-1 ckpt/julia-1-onnx/parity-cases.json
 python scripts/llama_numerics.py packages/decider-2b
 python scripts/prefix_sharing.py packages/decider-2b --device cpu --report validation/decider-2b/prefix-sharing-cpu.json
+
+python llama.cpp/convert_hf_to_gguf.py ckpt/qwen3-1.7b --outtype f16 --outfile ckpt/Qwen3-1.7B-F16.gguf
+opendxp export anyjev ckpt/qwen3-1.7b packages/anyjev-qwen3-1.7b --gguf ckpt/Qwen3-1.7B-F16.gguf --base Qwen/Qwen3-1.7B
+opendxp conformance generate packages/anyjev-qwen3-1.7b --native ckpt/qwen3-1.7b --runtime anyjev --threads 8
+opendxp check packages/anyjev-qwen3-1.7b --threads 8 --report validation/anyjev-qwen3-1.7b/check-cpu.json
+python scripts/anyjev_token_ids.py packages/anyjev-qwen3-1.7b ckpt/qwen3-1.7b
 ```
 
 ## Not measured yet

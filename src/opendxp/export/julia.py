@@ -27,7 +27,7 @@ from opendxp.export.encoder import (
 from opendxp.export.onnx_graph import GRAPH_NAME, WEIGHTS_NAME, compare_with_torch, export_graph
 from opendxp.package import sha256_file
 from opendxp.profiles.encoder_markers import Template
-from opendxp.spec import STANDARD
+from opendxp.spec import BASE
 from opendxp.tokens import Tokens
 
 MAX_OPTIONS = 20
@@ -35,7 +35,7 @@ MAX_OPTIONS = 20
 
 def template(special: dict[str, str], total: int = 8192, head: int = 512) -> dict[str, Any]:
     return {
-        "standard": STANDARD,
+        "standard": BASE,
         "profile": "encoder-markers",
         "special_tokens": special,
         "question_type_ids": {"choice": 0, "score": 1, "noul": 2},
@@ -266,7 +266,7 @@ def map_official_graph(graph_path: Path, out_dir: Path, weights: Path) -> dict[s
     graph.insert_before(first, nodes)
     model.metadata_props.update(
         {
-            "odxp.standard": STANDARD,
+            "odxp.standard": BASE,
             "odxp.profile": "encoder-markers",
             "odxp.source": "SupersonicLabs/Julia-1-ONNX model.onnx, inputs renamed",
         }
@@ -310,7 +310,7 @@ def export(
     write_json(out_dir / "template.json", tmpl)
     calibration = calibration_ok(
         {
-            "standard": STANDARD,
+            "standard": BASE,
             "temperature": {"choice": 1.0, "score": 1.0, "noul": 1.0},
             "source": "Julia 1 publishes no calibration (inference-policy.json: calibration null); "
             "the temperature buffer in the checkpoint is [1, 1, 1] and is never read.",

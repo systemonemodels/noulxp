@@ -1,9 +1,12 @@
-# OpenDXP 0.1
+# OpenDXP 0.2
 
 **The Open Decision Exchange Protocol: a portable standard for calibrated single-pass decision models.**
 
-Status: version 0.1, the first implemented version. Reference implementation:
-the `opendxp` package in this repository. Licence: Apache-2.0.
+Status: version 0.2. It adds the HTTP and MCP bindings (sections 11 and 12)
+and, to the causal-letters profile, typed layouts, chat templates and
+rotations (6.7, 6.8); every 0.1 package is a 0.2 package. Features new in 0.2
+are marked (0.2). Reference implementation: the `opendxp` package in this
+repository. Licence: Apache-2.0.
 
 The key words MUST, MUST NOT, SHOULD, SHOULD NOT and MAY are used as in RFC 2119.
 The JSON Schemas in `schemas/` are normative for the structure of every file;
@@ -17,7 +20,7 @@ Every such model published so far ships its own inference code. OpenDXP defines
 a **package** that any OpenDXP **engine** can run without code written for that
 model, and a **conformance** method that proves the engine runs it faithfully.
 
-OpenDXP 0.1 has two **profiles**, one per architecture family:
+OpenDXP has two **profiles**, one per architecture family:
 
 | Profile | Architecture | Weights | Declarative input | Answer read from |
 | --- | --- | --- | --- | --- |
@@ -45,7 +48,8 @@ Terms used below:
 - **Reference runtime**: the runtime in this repository, which reads only the package.
 - **Engine**: any program that runs OpenDXP packages. The reference runtime is one.
 - **Row**: one forward pass. An encoder-markers question is one row; a
-  causal-letters question is one row, or one row per level (section 6.4).
+  causal-letters question is one row, one row per level (section 6.4) or one
+  row per rotation of its options (section 6.8).
 
 ## 2. Nothing in a package is executed
 
@@ -53,7 +57,9 @@ A package is data: a manifest, weights in ONNX or GGUF, a `tokenizer.json`,
 declarative JSON files and a conformance file. An engine MUST NOT execute
 anything a package contains other than the weights graph through its ONNX or
 GGUF runtime. Templates are filled by placeholder substitution only (section
-3.5); there is no template language, no Python, no Jinja.
+3.5); there is no template language, no Python, no Jinja. A chat template
+(6.7) is stored as the text it renders to, with `{system}` and `{user}` in
+place of the two messages; its Jinja source is not part of the package.
 
 ## 3. Requests and answers
 
@@ -81,10 +87,19 @@ option count; an engine MUST refuse a request over them.
 A string state is used as it is. A JSON state (object or array) is rendered
 with `json.dumps(state, ensure_ascii=False)` semantics: separators `", "` and
 `": "`, keys in insertion order, non-ASCII kept. A causal-letters prompt MAY
-declare `state.index_arrays_from: N`: arrays of N or more items are then
-annotated before rendering, each item becoming `{"_index": i, ...item}` (an
-object) or `{"_index": i, "value": item}`. The conformance set of 0.1 uses
-string states only.
+declare, in its `state` block:
+
+- `index_arrays_from: N`: arrays of N or more items are annotated before
+  rendering, each item becoming `{"_index": i, ...item}` (an object) or
+  `{"_index": i, "value": item}`;
+- `json: "indent-2"` (0.2): JSON is rendered with two-space indents,
+  separators `","` and `": "` (`json.dumps(state, indent=2, ensure_ascii=False)`);
+- `messages: "role-content"` (0.2): a conversation, a non-empty array of
+  objects that each have a string `role` and a string `content`, is rendered
+  as one `role: content` line per turn, joined by newlines;
+- `empty` (0.2): the text used for an empty or null state.
+
+The conformance set uses string states only.
 
 ### 3.3 Options
 
@@ -123,7 +138,7 @@ replaces every placeholder whose name is given, in a single left-to-right pass:
 text inserted from the request is never expanded again, and an unknown
 placeholder is left as it is. The placeholders in use are `{type}`,
 `{instructions}`, `{name}`, `{description}`, `{index}`, `{state}`, `{label}`,
-`{text}` and `{level}`.
+`{text}` and `{level}`, and in 0.2 `{legend}`, `{system}` and `{user}` (6.7).
 
 ### 3.6 Answers
 
@@ -175,7 +190,7 @@ File names other than `odxp.json` are free; the manifest names them.
 
 | Field | Required | Meaning |
 | --- | --- | --- |
-| `standard` | yes | `"odxp/0.1"` |
+| `standard` | yes | `"odxp/0.1"` or `"odxp/0.2"` (4.5) |
 | `name` | yes | the model's name, e.g. `convai-innovations/laya:typed-decisions` |
 | `profile` | yes | `encoder-markers` or `causal-letters` |
 | `weights` | yes | file entry with `format` (`onnx` or `gguf`); ONNX adds `opset` and `data` (its external data files) |
@@ -211,7 +226,10 @@ type and cast to float32 in the graph, which is exactly what a float32 runtime
 does when it loads it. A conversion that does this copies no weights, and the
 package's weights hash is the published one.
 
-**GGUF** (causal-letters). The model's GGUF file, unchanged.
+**GGUF** (causal-letters). The model's GGUF file, unchanged. A model published
+without a GGUF at the precision its own code runs is converted from its
+weights at that precision (llama.cpp's `convert_hf_to_gguf.py`, F16 for BF16
+weights); a quantised GGUF is a derived package (section 10).
 
 ### 4.4 In systemone.yaml
 
@@ -226,8 +244,12 @@ runtime:
 ### 4.5 Versions
 
 An engine MUST refuse a package whose `standard` it does not implement. Before
-1.0, every minor version may change the format: an engine implementing 0.1
-runs exactly `odxp/0.1`.
+1.0, every minor version may change the format: an engine implementing 0.2
+runs `odxp/0.1` and `odxp/0.2` packages, and never a newer one. A package
+declares the oldest version that has every feature it uses, so that the
+engines already deployed keep running it: a converter writes `odxp/0.1`
+unless the package uses a feature marked (0.2). The files of a package declare
+the same version as its manifest.
 
 ## 5. Profile `encoder-markers`
 
@@ -313,7 +335,8 @@ T = the calibrated temperature (section 7), p = softmax(z / T).
 As 5.1: `tokenizer.json`, no special tokens added, no BOS, no chat template.
 The context piece and each question piece are encoded **separately** and their
 ids concatenated: encoding them as one string gives different ids at the
-boundary (for example a state ending in a newline).
+boundary (for example a state ending in a newline). A typed prompt (6.7)
+encodes each row as one string instead, as instruction-tuned models are asked.
 
 ### 6.2 prompt.json
 
@@ -327,8 +350,11 @@ boundary (for example a state ending in a newline).
 | `options` | the forms of 3.3 |
 | `score` | `{"mode": "list"}` or `{"mode": "isolated", "question", "options", "read", "level_strip"}` (6.4) |
 | `instructions` | fallback and requirement (3.4) |
-| `state` | optional `index_arrays_from` (3.2) |
+| `state` | optional `index_arrays_from`, and (0.2) `json`, `messages`, `empty` (3.2) |
 | `decode` | the llama.cpp settings that change the numbers (6.6) |
+| `types` | (0.2) a layout per question type, instead of `question`, `labels`, `layouts` and `score` (6.7) |
+| `chat` | (0.2) the model's chat template, rendered, and its system text (6.7) |
+| `rotations` | (0.2) how the rows of a rotated question are combined, and the prior divided out (6.8) |
 
 ### 6.3 Rows
 
@@ -377,6 +403,99 @@ also depend on backend settings, which the package declares in
 On this repository's measurements, switching flash attention off on the CPU
 alone moves Decider's probabilities by up to 0.014 (VALIDATION.md).
 
+### 6.7 Typed layouts (0.2)
+
+A typed prompt lays out each question type on its own, and is how an
+instruction-tuned model is asked for a decision without being trained for it
+(AnyJev, Appendix A). It declares `types` instead of `question`, `labels`,
+`layouts` and `score`, and MAY declare `chat` and `rotations`:
+
+```json
+"chat": {"template": "<|im_start|>system\n{system}<|im_end|>\n<|im_start|>user\n{user}<|im_end|>\n<|im_start|>assistant\n",
+         "system": "You are a decision function. ..."},
+"context": {"template": "State:\n{state}\n\n"},
+"types": {
+  "choice": {"layouts": [{"max_options": 26, "labels": ["A", "B", "...", "Z"],
+                          "head": "Question: {instructions}\nOptions:\n",
+                          "option": "{label}. {text}", "separator": "\n",
+                          "tail": "\nAnswer with the letter only."}],
+             "labels": "positional", "rotate": "cyclic", "listing": "request"},
+  "score":  {"layouts": [...], "rotate": "none"},
+  "noul":   {"layouts": [{"max_options": 2, "labels": ["No", "Yes"],
+                          "head": "Question: {instructions}{legend}\nAnswer ",
+                          "option": "{label}", "separator": " or ", "tail": "."}],
+             "labels": "attached", "rotate": "cyclic", "listing": ["true", "false"]}
+}
+```
+
+`types` holds choice, score and noul. For each, the layout used is the first
+whose `max_options` holds the option count; its labels MUST be single tokens
+of the tokenizer, distinct, at least `max_options` of them. The option
+template has one `{label}` and MAY have a `{text}`; the head MAY use
+`{instructions}` and `{legend}`.
+
+- `labels`: `positional` (default), the label names the position, so the
+  option shown j-th is labelled `labels[j]`; or `attached`, the label names
+  the option, so option i (in request order, for noul false then true) is
+  labelled `labels[i]` wherever it is shown.
+- `listing`: the order the options are first shown in. `request` (default);
+  `canonical`, sorted by option text (by code point), ties in request order;
+  or, for noul only, the keys in order.
+- `rotate`: `none` (default), one row in the listing; or `cyclic`, one row per
+  cyclic shift of the listing (6.8).
+
+With the option texts t_i (3.3), the instructions q (3.4), the state text s
+(3.2) and a listing π (π_j is the option shown at position j, π⁰ the first
+listing), let λ_j be `labels[j]` (positional) or `labels[π_j]` (attached). Then
+
+    question = fill(head, instructions=q, legend=t_{π⁰_0} + t_{π⁰_1} + ...)
+               + separator.join(fill(option, label=λ_j, text=t_{π_j}) for each j)
+               + tail
+    user     = fill(context.template, state=s) + question
+    row      = fill(chat.template, system=chat.system, user=user)    (user without chat)
+
+and the row is encoded as one string (6.1). `{legend}` carries the options'
+texts, in the first listing, into a head whose options show only their labels:
+a noul's descriptions then read as a line each after the question. The answer
+slot is the last token, and z_j is the logit of the token of λ_j:
+p_pos = softmax(z / T) is a distribution over positions. A choice whose option
+texts are not distinct is refused. `context.max_tokens` does not apply.
+
+`chat.template` MUST contain `{user}` once and MAY contain `{system}` once. A
+converter renders the model's own chat template once, with marks in place of
+the two messages, and replaces them: it MUST check that other messages render
+as the template filled with them (a template that changes its messages cannot
+be stored this way).
+
+### 6.8 Rotations (0.2)
+
+A model that reads letters prefers some positions and some labels. A question
+with `rotate: "cyclic"` and a first listing π⁰ of n options is asked in the n
+cyclic shifts π^s_j = π⁰_{(j+s) mod n}, s = 0, ..., n−1, so every option is
+shown at every position once (a noul: its two answers in both orders). Each
+shift is a row with its distribution p^s over positions; q^s_i = p^s_j for the
+j with π^s_j = i is the same distribution over options. The shifts are
+combined per option:
+
+- `logmean` (default): z_i = mean_s log max(q^s_i, 10⁻¹²);
+  p_i = exp(z_i − max z) / Σ_k exp(z_k − max z). If a position adds a bias in
+  logit space, it cancels exactly (Zheng et al., ICLR 2024).
+- `mean`: p_i = mean_s q^s_i, normalised.
+
+A question with `rotate: "none"` is combined the same way from its one row.
+
+`rotations.prior` is `{"kind": "none"}` (default) or `{"kind":
+"content-free", "probes": [...], "strength": α}` with 0 ≤ α ≤ 1 (Zhao et al.,
+ICML 2021). For each shift the row is read once per probe, the probe taking
+the place of the state text (so `""` becomes the `empty` text of 3.2); the
+prior r^s is the mean of those distributions, each value floored at 10⁻⁸, then
+normalised, and before combining
+
+    p^s ← normalise(max(p^s / max((r^s)^α, 10⁻⁸), 10⁻⁸))
+
+elementwise. A probe's row depends on the question and not on the state, so
+an engine MAY cache its distribution.
+
 ## 7. Calibration
 
 ```json
@@ -405,6 +524,12 @@ moves its probabilities by up to 0.018 and changed one of 91 decisions, a near
 tie (VALIDATION.md), so there it is a serving choice and not a conformant way
 to run the package.
 
+The same holds for rotations (6.8). Reading fewer shifts than a question
+declares, and stopping once the leading option is far enough ahead (AnyJev's
+adaptive shifts), changes the probabilities; a prior estimated from earlier
+requests (AnyJev's default batch prior) makes one answer depend on other
+requests. Both are serving choices and not conformant ways to run a package.
+
 ## 9. Conformance
 
 ### 9.1 conformance.jsonl
@@ -427,9 +552,9 @@ refused the request.
 A conformance file MUST be generated by running the **native runtime** (the
 model's own code, on a CPU) on the requests, and the manifest's
 `conformance.generated_by` MUST say which code, which version and which
-libraries. For 0.1 the request set is `src/opendxp/data/requests-0.1.jsonl`
-(52 requests, 91 questions, 11 languages); a package MAY use another set if it
-meets the minimum:
+libraries. The request set is `src/opendxp/data/requests-0.1.jsonl` (52
+requests, 91 questions, 11 languages; unchanged in 0.2); a package MAY use
+another set if it meets the minimum:
 
 - at least 40 cases;
 - at least 5 questions of each type;
@@ -591,22 +716,29 @@ protocol messages to stdout.
 ## 14. Left open
 
 - One pass for all questions (Laya-style batching of every question in one
-  sequence) as a declared profile variant; 0.1 runs one row per question.
-- Conversation states (a list of turns) and a canonical rendering for them.
-- Chat-template causal models (Kev, Nimble): a `chat` layout in prompt.json.
+  sequence) as a declared profile variant; a package runs one row per
+  question (or per level, or per rotation).
+- Conversation states beyond text turns (content parts, images), and a
+  conformance set with JSON and conversation states.
+- A rotation budget (reading a subset of the shifts, with a certified rate of
+  disagreement with all of them) as a declared variant with its own
+  conformance rule, and priors estimated across requests.
+- Hidden-state heads (AnyJev's L2: a closed-form head per question, read
+  partway down the model) as a profile.
 - Vision and audio inputs: a later profile.
 - Accelerator numerics: llama.cpp's Metal backend reproduces Decider's
   decisions but not its probabilities within 0.01 (VALIDATION.md). A future
   version may define tolerance classes per backend.
 - Quantised ONNX variants and their tolerance.
 
-## Appendix A. The three reference conversions
+## Appendix A. The reference conversions
 
 | Model | Profile | How it maps |
 | --- | --- | --- |
 | Laya (and Laya Studio fine-tunes) | encoder-markers | graph from `laya.common.build_model`; template from `build_sequence` and `render_options` (`truncate-state`, `replace`, budgets from `rl_agent_config.json`); calibration from its temperatures, clamped, with option-count buckets; confidence `entropy` (choice, score) and `max-probability` (noul) |
 | Julia 1 (Supersonic Labs) | encoder-markers | graph from the `JuliaDecisionModel` inference subset (last head layer at the markers only); template from `julia/data.py sequence(strict=True)` with the published policy (8192 / 512); an option with no description is its name; temperature 1; confidence `max-probability` |
 | Decider (Mark Marosi) | causal-letters | the official GGUF; prompt from decider-ai 1.6.0's plain layout (context and question pieces, A–J joined, 255 single-token labels split at the label beyond 10, isolated score levels with the "Proposed answer" question, the noul fallback question); temperatures by type from `decider_config.json`; confidence `typesafe` / `typesafe-ordinal` |
+| AnyJev L0 (Nokia) on Qwen3-1.7B | causal-letters, typed (0.2) | Qwen3-1.7B's weights as an F16 GGUF, decoded with an f32 cache and flash attention off, the closest llama.cpp comes to AnyJev's float32 transformers (Qwen's Q8_0 GGUF is a derived package that does not pass); the typed layouts of anyjev 0.2.0's `build_prompt` with the labels `resolve_labels` picks (A–Z; digits 1–9, or A–J for ten levels; Yes/No attached to their answers); the chat template as `render_chat` renders it (the default system prompt, no thinking); `render_state`; every cyclic shift of a choice and both orders of a noul, combined by log-mean, no prior; temperature 1; confidence `max-probability`. A choice option reads "name" or "name: description", a score level is its description, a noul's descriptions follow its instructions as "Yes: ..." and "No: ..." lines |
 
 ## Appendix B. Schemas
 

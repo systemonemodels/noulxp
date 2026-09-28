@@ -6,8 +6,11 @@ any of them is a change to the standard.
 
 from __future__ import annotations
 
-STANDARD = "odxp/0.1"
-MAJOR, MINOR = 0, 1
+# The versions this implementation runs, oldest first. A package declares the
+# oldest version that has every feature it uses (SPEC.md 4.5), so converters
+# write BASE unless a package needs more.
+VERSIONS = ("odxp/0.1", "odxp/0.2")
+BASE, STANDARD = VERSIONS[0], VERSIONS[-1]
 
 PROFILES = ("encoder-markers", "causal-letters")
 QUESTION_TYPES = ("choice", "score", "noul")
@@ -53,10 +56,18 @@ def supported(value: object) -> bool:
     """Whether this implementation can run a package declaring `value`.
 
     Before 1.0 every minor version may change the format, so an engine runs
-    exactly the minor versions it implements, and never a newer one.
+    exactly the versions it implements, and never a newer one.
     """
     try:
-        major, minor = parse_standard(value)
+        parse_standard(value)
     except ValueError:
         return False
-    return (major, minor) == (MAJOR, MINOR)
+    return value in VERSIONS
+
+
+def at_least(value: object, version: str) -> bool:
+    """Whether the declared standard `value` is `version` or newer."""
+    try:
+        return parse_standard(value) >= parse_standard(version)
+    except ValueError:
+        return False

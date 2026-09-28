@@ -1,0 +1,128 @@
+{
+  "standard": "odxp/0.2",
+  "package": {
+    "name": "nokia/anyjev-qwen3-1.7b",
+    "profile": "causal-letters",
+    "path": "anyjev-qwen3-1.7b-f16",
+    "conformance_sha256": "2b950a7f26ae46d605c54a369920c02432d6e3e74a72ca1a318fc1a88382dbdc",
+    "weights_sha256": "783feaea3b6793cff557da5de6de42c850e5ea5f679999ff3c7087d631d4dc24"
+  },
+  "runtime": {
+    "implementation": "opendxp 0.2.0",
+    "profile": "causal-letters",
+    "backend": "llama.cpp (llama-cpp-python 0.3.35)",
+    "gpu_offload": false,
+    "threads": 8,
+    "n_ctx": 8192,
+    "decode": {
+      "flash_attention": "auto",
+      "kv_cache": "f16",
+      "ubatch": 2048
+    },
+    "device": "cpu"
+  },
+  "machine": {
+    "platform": "macOS-27.0-arm64-arm-64bit",
+    "machine": "arm64",
+    "processor": "Apple M4",
+    "cpus": 10,
+    "python": "3.12.13",
+    "onnxruntime_providers": [
+      "CoreMLExecutionProvider",
+      "AzureExecutionProvider",
+      "CPUExecutionProvider"
+    ],
+    "llama_cpp": "0.3.35",
+    "llama_gpu_offload": true
+  },
+  "tolerance": {
+    "max_abs_dp": 0.01,
+    "tie_margin": 0.001
+  },
+  "cases": 52,
+  "cases_passed": 51,
+  "questions": 90,
+  "max_abs_dp": 0.011598014560485592,
+  "mean_abs_dp": 0.0005442287803006364,
+  "argmax_agreement": {
+    "agree": 90,
+    "total": 90
+  },
+  "errors": {
+    "expected": 1,
+    "matched": 1
+  },
+  "latency_ms": {
+    "load": 292.7,
+    "request_median": 2490.57,
+    "request_p90": 7565.81,
+    "request_mean": 4316.92,
+    "question_median": 1245.28,
+    "input_tokens_mean": 501.04
+  },
+  "package_problems": [],
+  "coverage": {
+    "cases": 52,
+    "questions_by_type": {
+      "choice": 41,
+      "score": 20,
+      "noul": 30
+    },
+    "choice_option_counts": [
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      20
+    ],
+    "languages": [
+      "ar",
+      "de",
+      "en",
+      "es",
+      "fr",
+      "hi",
+      "ja",
+      "ne",
+      "pt",
+      "th",
+      "zh"
+    ],
+    "longest_state_chars": 6687,
+    "checks": {
+      "cases": true,
+      "question_types": true,
+      "choice_2_to_10_options": true,
+      "more_than_10_options": true,
+      "languages": true,
+      "long_state": true
+    },
+    "ok": true
+  },
+  "passed": false,
+  "compatible": false,
+  "failures": [
+    {
+      "id": "r26",
+      "ok": false,
+      "max_dp": 0.011598014560485592,
+      "questions": {
+        "cancel": {
+          "ok": false,
+          "dp": 0.011598014560485592,
+          "argmax_ok": true,
+          "expected_argmax": "true",
+          "observed_argmax": "true"
+        }
+      }
+    }
+  ],
+  "checked_at": "2026-09-28T20:20:56Z"
+}

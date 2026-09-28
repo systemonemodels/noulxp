@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:odxp:0.1:calibration",
+  "$id": "urn:odxp:0.2:calibration",
   "title": "Calibration (calibration.json)",
   "description": "The temperature each question's logits are divided by before the softmax: the first matching by_option_count entry, else the type's temperature, else 1. SPEC.md section 7.",
   "type": "object",
   "required": ["standard", "temperature"],
   "properties": {
-    "standard": {"const": "odxp/0.1"},
+    "standard": {"enum": ["odxp/0.1", "odxp/0.2"]},
     "temperature": {
       "type": "object",
       "propertyNames": {"enum": ["choice", "score", "noul"]},

@@ -14,7 +14,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from opendxp.errors import PackageError
-from opendxp.spec import CONFIDENCE_RULES, PROFILES, STANDARD, supported
+from opendxp.spec import CONFIDENCE_RULES, PROFILES, VERSIONS, supported
 
 MANIFEST = "odxp.json"
 # The files each profile needs, by manifest key.
@@ -134,7 +134,7 @@ def open_package(path: str | Path) -> Package:
         raise PackageError(f"{MANIFEST} is not an object")
     standard = manifest.get("standard")
     if not supported(standard):
-        raise PackageError(f"this engine runs {STANDARD} packages, not {standard!r}")
+        raise PackageError(f"this engine runs {' and '.join(VERSIONS)} packages, not {standard!r}")
     profile = manifest.get("profile")
     if profile not in PROFILES:
         raise PackageError(f"unknown profile {profile!r}")

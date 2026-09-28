@@ -1,7 +1,7 @@
 """The `opendxp` command.
 
-opendxp export laya|julia|decider CHECKPOINT OUT_DIR
-opendxp conformance generate PACKAGE --native CHECKPOINT --runtime laya|julia|decider
+opendxp export laya|julia|decider|anyjev CHECKPOINT OUT_DIR
+opendxp conformance generate PACKAGE --native CHECKPOINT --runtime laya|julia|decider|anyjev
 opendxp check PACKAGE [--device cpu|auto|coreml|cuda|openvino|qnn|directml|gpu]
 opendxp validate PACKAGE
 opendxp run PACKAGE --request request.json
@@ -40,8 +40,19 @@ def cmd_export(args: argparse.Namespace) -> int:
             options["max_tokens"] = args.max_tokens
         if args.official_onnx:
             options["official_onnx"] = Path(args.official_onnx)
+    elif args.family == "anyjev":
+        from opendxp.export import anyjev as exporter
+
+        if not args.gguf:
+            raise SystemExit("anyjev: --gguf names the model's GGUF weights")
+        options.update(gguf=args.gguf, prior=args.prior, canonical=args.canonical_order)
+        if args.base:
+            options["base"] = args.base
     else:
         from opendxp.export import decider as exporter
+
+        if args.gguf:
+            options["gguf"] = args.gguf
     manifest = exporter.export(Path(args.checkpoint), Path(args.out_dir), **options)
     print(f"wrote {Path(args.out_dir) / 'odxp.json'} ({manifest['profile']})")
     print(
@@ -63,7 +74,9 @@ def cmd_generate(args: argparse.Namespace) -> int:
     if args.limit:
         requests = requests[: args.limit]
     print(f"loading the model's own runtime ({args.runtime}) from {args.native}")
-    native = load_native(args.runtime, Path(args.native), threads=args.threads)
+    native = load_native(
+        args.runtime, Path(args.native), threads=args.threads, package=Path(args.package)
+    )
     try:
         summary = generate(Path(args.package), native, requests)
     finally:
@@ -195,8 +208,9 @@ def cmd_mcp(args: argparse.Namespace) -> int:
 
 def cmd_info(args: argparse.Namespace) -> int:
     from opendxp.providers import describe_machine
+    from opendxp.spec import VERSIONS
 
-    _print_json({"opendxp": __version__, **describe_machine()})
+    _print_json({"opendxp": __version__, "standards": list(VERSIONS), **describe_machine()})
     return 0
 
 
@@ -208,7 +222,7 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="command", required=True)
 
     p = sub.add_parser("export", help="convert a model's checkpoint into an OpenDXP package")
-    p.add_argument("family", choices=["laya", "julia", "decider"])
+    p.add_argument("family", choices=["laya", "julia", "decider", "anyjev"])
     p.add_argument("checkpoint")
     p.add_argument("out_dir")
     p.add_argument("--name", help="the package name (default: the model's registry name)")
@@ -217,6 +231,19 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument(
         "--official-onnx",
         help="julia: map SupersonicLabs/Julia-1-ONNX's model.onnx instead of exporting a graph",
+    )
+    p.add_argument("--gguf", help="decider, anyjev: the GGUF weights file")
+    p.add_argument("--base", help="anyjev: the base model's registry name, e.g. Qwen/Qwen3-1.7B")
+    p.add_argument(
+        "--prior",
+        choices=["none", "content-free"],
+        default="none",
+        help="anyjev: the label prior divided out of each rotation (default none)",
+    )
+    p.add_argument(
+        "--canonical-order",
+        action="store_true",
+        help="anyjev: rotate the options sorted by text instead of the request's order",
     )
     p.set_defaults(func=cmd_export)
 
@@ -227,7 +254,7 @@ def main(argv: list[str] | None = None) -> int:
     g.add_argument(
         "--native", required=True, help="the checkpoint directory the model's code reads"
     )
-    g.add_argument("--runtime", required=True, choices=["laya", "julia", "decider"])
+    g.add_argument("--runtime", required=True, choices=["laya", "julia", "decider", "anyjev"])
     g.add_argument("--requests", help="a requests JSONL (default: the OpenDXP 0.1 set)")
     g.add_argument("--threads", type=int, default=4)
     g.add_argument("--limit", type=int, help="only the first N requests (for a quick try)")

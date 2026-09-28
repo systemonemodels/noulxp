@@ -62,3 +62,42 @@ def state_text(state: Any, index_arrays_from: int | None = None) -> str:
     if index_arrays_from:
         state = annotate_indices(state, index_arrays_from)
     return json.dumps(state, ensure_ascii=False)
+
+
+STATE_JSON = ("compact", "indent-2")
+
+
+def is_messages(state: Any) -> bool:
+    """A conversation: a non-empty list of objects that each have a string role and content."""
+    return (
+        isinstance(state, list)
+        and bool(state)
+        and all(
+            isinstance(m, dict)
+            and isinstance(m.get("role"), str)
+            and isinstance(m.get("content"), str)
+            for m in state
+        )
+    )
+
+
+def render_state(state: Any, spec: dict[str, Any] | None = None) -> str:
+    """The state as a prompt's `state` block declares it (SPEC.md 3.2).
+
+    Without `json`, `messages` or `empty` this is `state_text`. `json: "indent-2"`
+    renders JSON with two-space indents; `messages: "role-content"` renders a
+    conversation as one "role: content" line per turn; `empty` replaces an empty
+    or null state.
+    """
+    spec = spec or {}
+    if isinstance(state, str):
+        text = state
+    elif spec.get("messages") == "role-content" and is_messages(state):
+        text = "\n".join(f"{m['role']}: {m['content']}" for m in state)
+    elif spec.get("json", "compact") == "indent-2":
+        text = json.dumps(state, indent=2, ensure_ascii=False, default=str)
+    else:
+        text = state_text(state, spec.get("index_arrays_from"))
+    if spec.get("empty") is not None and (state is None or text == ""):
+        return str(spec["empty"])
+    return text

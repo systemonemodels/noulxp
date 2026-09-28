@@ -12,7 +12,7 @@ from typing import Any
 
 from opendxp import __version__
 from opendxp.package import MANIFEST, sha256_file
-from opendxp.spec import STANDARD
+from opendxp.spec import BASE
 
 
 def write_json(path: Path, data: Any) -> None:
@@ -70,9 +70,10 @@ def manifest(
     limits: dict[str, int],
     confidence: dict[str, str],
     source: dict[str, Any],
+    standard: str = BASE,
 ) -> dict[str, Any]:
     return {
-        "standard": STANDARD,
+        "standard": standard,
         "name": name,
         "profile": profile,
         **files,

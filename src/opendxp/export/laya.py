@@ -25,7 +25,7 @@ from opendxp.export.encoder import (
 )
 from opendxp.export.onnx_graph import GRAPH_NAME, WEIGHTS_NAME, compare_with_torch, export_graph
 from opendxp.profiles.encoder_markers import Template
-from opendxp.spec import STANDARD
+from opendxp.spec import BASE
 from opendxp.tokens import Tokens
 
 TEMP_MIN, TEMP_MAX = 0.5, 5.0  # laya.common.TEMP_MIN / TEMP_MAX
@@ -47,7 +47,7 @@ def clamp(value: Any) -> float:
 
 def template(cfg: dict[str, Any], special: dict[str, str]) -> dict[str, Any]:
     return {
-        "standard": STANDARD,
+        "standard": BASE,
         "profile": "encoder-markers",
         "special_tokens": special,
         "question_type_ids": {"choice": 0, "score": 1, "noul": 2},
@@ -108,7 +108,7 @@ def calibration(cfg: dict[str, Any]) -> dict[str, Any]:
     buckets.sort(key=lambda b: (order[b["type"]], b["min"]))
     return calibration_ok(
         {
-            "standard": STANDARD,
+            "standard": BASE,
             "temperature": by_type,
             "by_option_count": buckets,
             "source": {

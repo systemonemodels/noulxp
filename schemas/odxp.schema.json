@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:odxp:0.1:manifest",
+  "$id": "urn:odxp:0.2:manifest",
   "title": "OpenDXP package manifest (odxp.json)",
   "description": "The root of an OpenDXP package: which standard and profile it follows and every file it carries, each with its SHA-256. SPEC.md section 4.",
   "type": "object",
   "required": ["standard", "name", "profile", "weights", "tokenizer", "calibration", "limits"],
   "properties": {
-    "standard": {"const": "odxp/0.1"},
+    "standard": {"enum": ["odxp/0.1", "odxp/0.2"]},
     "name": {"type": "string", "minLength": 1, "maxLength": 200},
     "profile": {"enum": ["encoder-markers", "causal-letters"]},
     "weights": {"$ref": "#/$defs/weights"},

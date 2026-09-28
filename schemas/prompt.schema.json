@@ -1,20 +1,17 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:odxp:0.1:prompt",
+  "$id": "urn:odxp:0.2:prompt",
   "title": "causal-letters prompt (prompt.json)",
-  "description": "How the reference runtime builds the prompt rows for one question and where it reads the answer. SPEC.md section 6.",
+  "description": "How the reference runtime builds the prompt rows for one question and where it reads the answer: one layout for every question type (0.1), or typed layouts with an optional chat template and rotations (0.2). SPEC.md section 6.",
   "type": "object",
-  "required": ["standard", "profile", "context", "question", "labels", "layouts", "options"],
+  "required": ["standard", "profile", "context", "options"],
   "properties": {
-    "standard": {"const": "odxp/0.1"},
+    "standard": {"enum": ["odxp/0.1", "odxp/0.2"]},
     "profile": {"const": "causal-letters"},
     "context": {
       "type": "object",
       "required": ["template"],
-      "properties": {
-        "template": {"type": "string", "pattern": "\\{state\\}"},
-        "max_tokens": {"type": "integer", "minimum": 1}
-      },
+      "properties": {"template": {"type": "string", "pattern": "\\{state\\}"}, "max_tokens": {"type": "integer", "minimum": 1}},
       "additionalProperties": false
     },
     "question": {
@@ -34,10 +31,7 @@
       "items": {
         "type": "object",
         "required": ["max_options", "encoding"],
-        "properties": {
-          "max_options": {"type": "integer", "minimum": 2},
-          "encoding": {"enum": ["joined", "split-at-label"]}
-        },
+        "properties": {"max_options": {"type": "integer", "minimum": 2}, "encoding": {"enum": ["joined", "split-at-label"]}},
         "additionalProperties": false
       }
     },
@@ -87,7 +81,12 @@
     },
     "state": {
       "type": "object",
-      "properties": {"index_arrays_from": {"type": "integer", "minimum": 1}},
+      "properties": {
+        "index_arrays_from": {"type": "integer", "minimum": 1},
+        "json": {"enum": ["compact", "indent-2"], "default": "compact"},
+        "messages": {"const": "role-content"},
+        "empty": {"type": "string"}
+      },
       "additionalProperties": false
     },
     "decode": {
@@ -99,13 +98,93 @@
         "ubatch": {"type": "integer", "minimum": 1, "default": 2048}
       },
       "additionalProperties": false
+    },
+    "chat": {
+      "type": "object",
+      "description": "The model's chat template with the conversation in place: {system} and {user} are filled, the rest is kept as written. SPEC.md 6.7.",
+      "required": ["template"],
+      "properties": {"template": {"type": "string", "pattern": "\\{user\\}"}, "system": {"type": "string"}},
+      "additionalProperties": false
+    },
+    "types": {
+      "type": "object",
+      "description": "One layout per question type (SPEC.md 6.7).",
+      "required": ["choice", "score", "noul"],
+      "properties": {"choice": {"$ref": "#/$defs/type"}, "score": {"$ref": "#/$defs/type"}, "noul": {"$ref": "#/$defs/type"}},
+      "additionalProperties": false
+    },
+    "rotations": {
+      "type": "object",
+      "description": "How the rows of a rotated question are combined (SPEC.md 6.8).",
+      "properties": {
+        "combine": {"enum": ["logmean", "mean"], "default": "logmean"},
+        "prior": {
+          "oneOf": [
+            {"type": "object", "required": ["kind"], "properties": {"kind": {"const": "none"}}, "additionalProperties": false},
+            {
+              "type": "object",
+              "required": ["kind", "probes", "strength"],
+              "properties": {
+                "kind": {"const": "content-free"},
+                "probes": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+                "strength": {"type": "number", "minimum": 0, "maximum": 1}
+              },
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
     }
   },
+  "oneOf": [
+    {
+      "description": "0.1: one layout for every question type",
+      "required": ["question", "labels", "layouts"],
+      "not": {"anyOf": [{"required": ["types"]}, {"required": ["chat"]}, {"required": ["rotations"]}]}
+    },
+    {
+      "description": "0.2: typed layouts",
+      "required": ["types"],
+      "properties": {"standard": {"const": "odxp/0.2"}},
+      "not": {"anyOf": [{"required": ["question"]}, {"required": ["labels"]}, {"required": ["layouts"]}, {"required": ["score"]}]}
+    }
+  ],
   "$defs": {
     "forms": {
       "type": "object",
       "properties": {"described": {"type": "string"}, "bare": {"type": "string"}},
       "minProperties": 1,
+      "additionalProperties": false
+    },
+    "type": {
+      "type": "object",
+      "required": ["layouts"],
+      "properties": {
+        "layouts": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/layout"}},
+        "labels": {"enum": ["positional", "attached"], "default": "positional"},
+        "rotate": {"enum": ["none", "cyclic"], "default": "none"},
+        "listing": {
+          "oneOf": [
+            {"enum": ["request", "canonical"]},
+            {"type": "array", "minItems": 2, "uniqueItems": true, "items": {"type": "string"}}
+          ],
+          "default": "request"
+        }
+      },
+      "additionalProperties": false
+    },
+    "layout": {
+      "type": "object",
+      "required": ["max_options", "labels", "head", "option", "separator", "tail"],
+      "properties": {
+        "max_options": {"type": "integer", "minimum": 2},
+        "labels": {"type": "array", "minItems": 2, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "head": {"type": "string"},
+        "option": {"type": "string", "pattern": "\\{label\\}"},
+        "separator": {"type": "string"},
+        "tail": {"type": "string"}
+      },
       "additionalProperties": false
     }
   }

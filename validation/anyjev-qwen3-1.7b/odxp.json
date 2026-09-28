@@ -1,0 +1,76 @@
+{
+  "standard": "odxp/0.2",
+  "name": "nokia/anyjev-qwen3-1.7b",
+  "profile": "causal-letters",
+  "weights": {
+    "path": "model.gguf",
+    "sha256": "783feaea3b6793cff557da5de6de42c850e5ea5f679999ff3c7087d631d4dc24",
+    "format": "gguf"
+  },
+  "tokenizer": {
+    "path": "tokenizer.json",
+    "sha256": "aeb13307a71acd8fe81861d94ad54ab689df773318809eed3cbe794b4492dae4"
+  },
+  "prompt": {
+    "path": "prompt.json",
+    "sha256": "55cea8e0efd0ee1482e837f18e6f63783c32e997628e970304c1c5e23308eac4"
+  },
+  "calibration": {
+    "path": "calibration.json",
+    "sha256": "85e9a278b788ae8f9e623e4426db3d949433104b54a81787f71beae8137afbc6"
+  },
+  "answers": {
+    "confidence": {
+      "choice": "max-probability",
+      "score": "max-probability",
+      "noul": "max-probability"
+    }
+  },
+  "limits": {
+    "max_tokens": 40960,
+    "max_options": 26,
+    "max_levels": 10
+  },
+  "source": {
+    "model": "Qwen/Qwen3-1.7B",
+    "method": "AnyJev L0 (github.com/nokia-applied-research/AnyJev)",
+    "anyjev": "0.2.0",
+    "license": "Apache-2.0",
+    "checkpoint": "qwen3-1.7b",
+    "weights_file": "Qwen3-1.7B-F16.gguf",
+    "converted_by": "opendxp 0.2.0",
+    "converted_at": "2026-09-28T20:27:23Z"
+  },
+  "conformance": {
+    "path": "conformance.jsonl",
+    "sha256": "2b950a7f26ae46d605c54a369920c02432d6e3e74a72ca1a318fc1a88382dbdc",
+    "cases": 52,
+    "questions": 90,
+    "errors": 1,
+    "tolerance": {
+      "max_abs_dp": 0.01,
+      "tie_margin": 0.001
+    },
+    "generated_by": {
+      "runtime": "anyjev",
+      "code": "anyjev.Decider(level='L0') on anyjev.backends.hf.HFBackend",
+      "adapter": "opendxp.native.anyjev.AnyJev",
+      "adapter_sha256": "ef7b836cf672ceef3ec083084ee6bbe7d1ca2d1a7988e4232fe03309f349f30c",
+      "settings": {
+        "prior": "none",
+        "canonical_order": false,
+        "system": "You are a decision function. You will be given a state and one question. Reply with the answer label only: no words, no punctuation, no explanation."
+      },
+      "anyjev": "0.2.0",
+      "torch": "2.14.0",
+      "transformers": "5.17.0",
+      "tokenizers": "0.23.2",
+      "dtype": "float32",
+      "batch_size": 1,
+      "threads": 8,
+      "device": "cpu",
+      "tool": "opendxp 0.2.0",
+      "seconds": 193.0
+    }
+  }
+}
