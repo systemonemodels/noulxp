@@ -104,15 +104,19 @@ def bench_package(
     warmup: int = 3,
     usd_per_hour: float | None = None,
     log: Log = print,
+    **options: Any,
 ) -> dict[str, Any]:
-    """The reference runtime answering the requests one at a time, `rounds` times over."""
+    """The reference runtime answering the requests one at a time, `rounds` times over.
+
+    `options` go to the runtime (for example `batch_rows` for a causal-letters package).
+    """
     from opendxp.package import open_package
     from opendxp.providers import describe_machine
     from opendxp.runtime import load
 
     package = open_package(package_dir)
     started = time.perf_counter()
-    runtime = load(package, device=device, threads=threads)
+    runtime = load(package, device=device, threads=threads, **options)
     load_ms = (time.perf_counter() - started) * 1000
     for request in requests[:warmup]:
         runtime.predict(request.get("state", ""), request["questions"])

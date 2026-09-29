@@ -21,6 +21,7 @@ import functools
 import os
 import re
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -230,10 +231,17 @@ def unique_tokens(context: int, pieces: list[list[int]]) -> int:
     return context + common + sum(len(x) - common for x in pieces)
 
 
+Distributions = tuple[list[tuple[Question, list[float]]], dict[str, int]]
+# The rows a request needs read, and how to finish it from their logits (in that order).
+Plan = tuple[list[tuple[list[int], list[int]]], Callable[[list[np.ndarray]], Distributions]]
+
+
 class CausalLettersRuntime:
     """The reference runtime: tokenizers + llama.cpp, nothing specific to any model."""
 
     profile = "causal-letters"
+    # Rows decoded together per call (see __init__); one, the reference, unless asked.
+    batch_rows = 1
 
     def __init__(
         self,
@@ -242,7 +250,11 @@ class CausalLettersRuntime:
         device: str = "auto",
         threads: int | None = None,
         max_tokens: int = 8192,
+        batch_rows: int = 1,
     ) -> None:
+        """`batch_rows` above 1 decodes up to that many rows together, each as its own
+        sequence from empty memory, in one call: a serving choice, not part of the
+        package, so a runtime using it is checked like any other (`opendxp check`)."""
         try:
             import llama_cpp as lc
         except ImportError as exc:
@@ -279,7 +291,11 @@ class CausalLettersRuntime:
         cp.n_ctx = self.n_ctx
         cp.n_batch = self.n_ctx
         cp.n_ubatch = min(int(decode["ubatch"]), self.n_ctx)
-        cp.n_seq_max = 1
+        self.batch_rows = max(1, int(batch_rows))
+        cp.n_seq_max = self.batch_rows
+        if self.batch_rows > 1:
+            # The rows of one call share the context's cells, each row its own sequence.
+            cp.kv_unified = True
         cp.flash_attn_type = {
             "auto": lc.LLAMA_FLASH_ATTN_TYPE_AUTO,
             "enabled": lc.LLAMA_FLASH_ATTN_TYPE_ENABLED,
@@ -332,6 +348,53 @@ class CausalLettersRuntime:
         row = np.ctypeslib.as_array(pointer, shape=(self.n_vocab,))
         return np.asarray(row[np.asarray(label_ids)], dtype=np.float64)
 
+    def rows_logits(self, rows: list[tuple[list[int], list[int]]]) -> list[np.ndarray]:
+        """`slot_logits` for many rows; with `batch_rows` above 1, several in each decode."""
+        if self.batch_rows < 2:
+            return [self.slot_logits(ids, read) for ids, read in rows]
+        lc = self.lc
+        out: list[np.ndarray | None] = [None] * len(rows)
+        chunk: list[int] = []
+        used = 0
+
+        def flush() -> None:
+            lc.llama_memory_clear(lc.llama_get_memory(self.ctx), True)
+            b, k, lasts = self.batch, 0, []
+            for seq, index in enumerate(chunk):
+                ids = rows[index][0]
+                for i, t in enumerate(ids):
+                    b.token[k] = t
+                    b.pos[k] = i
+                    b.n_seq_id[k] = 1
+                    b.seq_id[k][0] = seq
+                    b.logits[k] = i == len(ids) - 1
+                    k += 1
+                lasts.append(k - 1)
+            b.n_tokens = k
+            if lc.llama_decode(self.ctx, b) != 0:
+                raise RuntimeError("llama_decode failed")
+            for index, last in zip(chunk, lasts, strict=True):
+                pointer = ctypes.cast(
+                    lc.llama_get_logits_ith(self.ctx, last), ctypes.POINTER(ctypes.c_float)
+                )
+                row = np.ctypeslib.as_array(pointer, shape=(self.n_vocab,))
+                out[index] = np.asarray(row[np.asarray(rows[index][1])], dtype=np.float64)
+            chunk.clear()
+
+        for index, (ids, _read) in enumerate(rows):
+            if len(ids) > self.n_ctx:
+                raise RequestError(
+                    f"a prompt row is {len(ids)} tokens; this runtime reads {self.n_ctx}"
+                )
+            if chunk and (len(chunk) >= self.batch_rows or used + len(ids) > self.n_ctx):
+                flush()
+                used = 0
+            chunk.append(index)
+            used += len(ids)
+        if chunk:
+            flush()
+        return [x for x in out if x is not None]
+
     def checked(self, questions: Any) -> list[Question]:
         """The request's questions, each within the options this model reads."""
         parsed = parse_questions(questions)
@@ -347,8 +410,24 @@ class CausalLettersRuntime:
     def distributions(
         self, state: Any, questions: Any
     ) -> tuple[list[tuple[Question, list[float]]], dict[str, int]]:
-        if isinstance(self.builder, TypedBuilder):
-            return self.typed_distributions(state, questions)
+        wanted, finish = self._plan(state, questions)
+        return finish(self.rows_logits(wanted))
+
+    def _plan(self, state: Any, questions: Any) -> Plan:
+        """The rows a request needs read, and how to turn their logits into its answers."""
+        wanted, finish = (
+            self._typed_plan(state, questions)
+            if isinstance(self.builder, TypedBuilder)
+            else self._plain_plan(state, questions)
+        )
+        for ids, _label_ids in wanted:
+            if len(ids) > self.n_ctx:
+                raise RequestError(
+                    f"a prompt row is {len(ids)} tokens; this runtime reads {self.n_ctx}"
+                )
+        return wanted, finish
+
+    def _plain_plan(self, state: Any, questions: Any) -> Plan:
         parsed = self.checked(questions)
         planned = [(q, *self.builder.rows(q)) for q in parsed]
         context = self.builder.context(state)
@@ -356,41 +435,75 @@ class CausalLettersRuntime:
         for _q, _kind, rows in planned:
             for text, options in rows:
                 pieces.append(self.builder.question_piece(text, options))
-        out, n = [], 0
-        for q, kind, rows in planned:
-            t = self.calibration.temperature(q.type, len(q.options))
-            probs = []
-            for _text, options in rows:
-                ids = context + pieces[n]
-                n += 1
-                logits = self.slot_logits(ids, self.builder.label_ids[: len(options)])
-                probs.append(softmax(logits.tolist(), t))
-            if kind == "isolated":
-                read = int(self.prompt.score["read"])
-                fit = [row[read] for row in probs]
-                total = sum(fit) or 1e-9
-                out.append((q, [x / total for x in fit]))
-            else:
-                out.append((q, probs[0]))
-        usage = {"input_tokens": unique_tokens(len(context), pieces), "output_tokens": 0}
-        return out, usage
+        wanted = [
+            (context + pieces[n], self.builder.label_ids[: len(options)])
+            for n, (_text, options) in enumerate(r for _q, _kind, rows in planned for r in rows)
+        ]
 
-    def typed_distributions(
-        self, state: Any, questions: Any
-    ) -> tuple[list[tuple[Question, list[float]]], dict[str, int]]:
-        """Typed layouts (SPEC.md 6.7, 6.8): a row per rotation, combined per option."""
+        def finish(logits: list[np.ndarray]) -> Distributions:
+            got = iter(logits)
+            out = []
+            for q, kind, rows in planned:
+                t = self.calibration.temperature(q.type, len(q.options))
+                probs = [softmax(next(got).tolist(), t) for _row in rows]
+                if kind == "isolated":
+                    level = int(self.prompt.score["read"])
+                    fit = [row[level] for row in probs]
+                    total = sum(fit) or 1e-9
+                    out.append((q, [x / total for x in fit]))
+                else:
+                    out.append((q, probs[0]))
+            return out, {"input_tokens": unique_tokens(len(context), pieces), "output_tokens": 0}
+
+        return wanted, finish
+
+    def _typed_plan(self, state: Any, questions: Any) -> Plan:
+        """Typed layouts (SPEC.md 6.7, 6.8): a row per rotation, combined per option.
+
+        A layout's rows are known before any is read, so they are collected first
+        (the layout asked with placeholder logits) and combined once all are read.
+        """
         builder = self.builder
         assert isinstance(builder, TypedBuilder)
         parsed = self.checked(questions)
         asked = [builder.ask(q) for q in parsed]
         state_text = builder.state(state)
-        out, read = [], []
-        for q, a in zip(parsed, asked, strict=True):
-            t = self.calibration.temperature(q.type, len(q.options))
-            p, rows = builder.distribution(state_text, a, self.slot_logits, t)
-            out.append((q, p))
-            read += rows
-        return out, {"input_tokens": trie_tokens(read), "output_tokens": 0}
+        wanted: list[tuple[list[int], list[int]]] = []
+
+        def record(ids: list[int], label_ids: list[int]) -> np.ndarray:
+            wanted.append((list(ids), list(label_ids)))
+            return np.zeros(len(label_ids))
+
+        # The recording pass must not leave its placeholder priors in the builder's cache
+        # of content-free priors: it records into a copy, and the real pass fills the cache.
+        cached = builder.probe_priors
+        builder.probe_priors = dict(cached)
+        try:
+            for a in asked:
+                builder.distribution(state_text, a, record, 1.0)
+        finally:
+            builder.probe_priors = cached
+
+        def finish(logits: list[np.ndarray]) -> Distributions:
+            done = {
+                (tuple(ids), tuple(label)): row
+                for (ids, label), row in zip(wanted, logits, strict=True)
+            }
+
+            def lookup(ids: list[int], label_ids: list[int]) -> np.ndarray:
+                # A row not read yet (a prior the cache has dropped since): read it now.
+                found = done.get((tuple(ids), tuple(label_ids)))
+                return found if found is not None else self.slot_logits(ids, label_ids)
+
+            out, read = [], []
+            for q, a in zip(parsed, asked, strict=True):
+                t = self.calibration.temperature(q.type, len(q.options))
+                p, rows = builder.distribution(state_text, a, lookup, t)
+                out.append((q, p))
+                read += rows
+            return out, {"input_tokens": trie_tokens(read), "output_tokens": 0}
+
+        return wanted, finish
 
     def predict(self, state: Any, questions: Any, decimals: int | None = 4) -> dict[str, Any]:
         dists, usage = self.distributions(state, questions)
@@ -398,6 +511,33 @@ class CausalLettersRuntime:
             "answers": {q.id: answer(q, p, self.rules, decimals) for q, p in dists},
             "usage": usage,
         }
+
+    def predict_many(
+        self, items: list[tuple[Any, Any]], decimals: int | None = 4
+    ) -> list[dict[str, Any] | Exception]:
+        """Several requests' rows read together (with `batch_rows`), each finished alone.
+
+        A request that cannot be asked gets its error; the others are unaffected.
+        """
+        results: list[dict[str, Any] | Exception] = [RequestError("not answered") for _ in items]
+        plans: list[tuple[int, int, int, Any]] = []
+        rows: list[tuple[list[int], list[int]]] = []
+        for i, (state, questions) in enumerate(items):
+            try:
+                wanted, finish = self._plan(state, questions)
+            except (RequestError, ValueError, KeyError, TypeError) as exc:
+                results[i] = exc
+                continue
+            plans.append((i, len(rows), len(wanted), finish))
+            rows.extend(wanted)
+        logits = self.rows_logits(rows) if rows else []
+        for i, start, count, finish in plans:
+            dists, usage = finish(logits[start : start + count])
+            results[i] = {
+                "answers": {q.id: answer(q, p, self.rules, decimals) for q, p in dists},
+                "usage": usage,
+            }
+        return results
 
     def close(self) -> None:
         lc = self.lc

@@ -92,6 +92,8 @@ def cmd_check(args: argparse.Namespace) -> int:
     options: dict[str, Any] = {}
     if args.optimization:
         options["optimization"] = args.optimization
+    if args.batch_rows and args.batch_rows > 1:
+        options["batch_rows"] = args.batch_rows
     report = check(
         Path(args.package),
         device=args.device,
@@ -237,6 +239,7 @@ def cmd_bench(args: argparse.Namespace) -> int:
             warmup=args.warmup,
             usd_per_hour=args.usd_per_hour,
             log=_stderr,
+            **({"batch_rows": args.batch_rows} if args.batch_rows and args.batch_rows > 1 else {}),
         )
     if args.report:
         Path(args.report).write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
@@ -307,6 +310,9 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--report", help="where to write the JSON report")
     p.add_argument("--no-hashes", action="store_true", help="skip the sha256 checks")
     p.add_argument("--optimization", choices=["disable", "basic", "extended", "all"])
+    p.add_argument(
+        "--batch-rows", type=int, help="causal-letters: decode this many rows together (serving)"
+    )
     p.set_defaults(func=cmd_check)
 
     p = sub.add_parser("validate", help="check a package's files against the schemas and hashes")
@@ -362,6 +368,9 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--warmup", type=int, default=3, help="requests sent before timing starts")
     p.add_argument("--device", default="auto", help="the device for a package")
     p.add_argument("--threads", type=int)
+    p.add_argument(
+        "--batch-rows", type=int, help="causal-letters: decode this many rows together (packages)"
+    )
     p.add_argument("--usd-per-hour", type=float, help="the machine's price, for the cost per 1,000")
     p.add_argument("--report", help="where to write the JSON report")
     p.set_defaults(func=cmd_bench)

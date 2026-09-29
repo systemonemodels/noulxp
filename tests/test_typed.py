@@ -144,6 +144,7 @@ def runtime(tokens: Tokens, data: dict[str, Any]) -> CausalLettersRuntime:
     rt.calibration = Calibration(exporter.calibration())
     rt.rules = {}
     rt.limits = {"max_tokens": 40960, "max_options": 26, "max_levels": 10}
+    rt.n_ctx = 40960
     vocab = tokens.backend.get_vocab_size()
     rt.slot_logits = lambda ids, label_ids: fake_logits(ids, vocab)[np.asarray(label_ids)]  # type: ignore[method-assign]
     return rt
@@ -468,3 +469,30 @@ def test_the_request_set_maps_to_anyjev() -> None:
 def test_unknown_words_still_tokenise(tokens: Tokens) -> None:
     assert tokens.encode(" ".join(UNKNOWN)) == [tokens.id("[UNK]")] * len(UNKNOWN)
     assert len(tokens.encode("10")) == 2
+
+
+@pytest.mark.parametrize("prior", ["none", "content-free"])
+def test_many_requests_at_once_are_answered_as_one_by_one(
+    tokens: Tokens, hf: ChatTokenizer, prior: str
+) -> None:
+    data = package_prompt(tokens, hf, prior=prior)
+    rng = random.Random(7)
+    items: list[tuple[Any, Any]] = []
+    for _ in range(12):
+        req = request(rng, "[MASK]", max_options=26)
+        items.append((req["state"], req["questions"]))
+    too_many = {"q": {"type": "choice", "criteria": [f"option {i}" for i in range(40)]}}
+    items.insert(5, ("a state", too_many))
+
+    alone: list[Any] = []
+    for state, questions in items:
+        try:
+            alone.append(runtime(tokens, data).predict(state, questions))
+        except RequestError as exc:
+            alone.append(exc)
+    together = runtime(tokens, data).predict_many(items)
+
+    assert isinstance(alone[5], RequestError) and isinstance(together[5], RequestError)
+    for one, many in zip(alone, together, strict=True):
+        if not isinstance(one, Exception):
+            assert many == one
