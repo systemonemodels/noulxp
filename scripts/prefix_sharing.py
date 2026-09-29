@@ -1,11 +1,12 @@
 """What sharing the prompt's prefix does to a causal-letters package's answers.
 
-Every row of a request starts with the same context piece. An engine can
-decode it once and continue each row from a copy of it (llama.cpp: sequence 0
-holds the prefix, each row is decoded in sequence 1 after copying it), instead
-of decoding every row from empty memory as SPEC.md 6.6 requires. This runs the
-package's conformance file both ways, through the reference runtime's own
-prompt building and answer assembly, and compares each with the file.
+A request's rows share most of their tokens: the chat template, the state, the
+question, and for rotations everything up to the options. An engine can keep the
+last row in the cache and decode only what the next row adds to it, instead of
+decoding every row from empty memory as SPEC.md 6.6 requires. This works for any
+layout (typed ones, rotations, content-free priors). It runs the package's
+conformance file both ways, through the reference runtime's own prompt building
+and answer assembly, and compares each with the file.
 
     python scripts/prefix_sharing.py PACKAGE [--device cpu|gpu] [--report prefix-sharing.json]
 """
@@ -26,7 +27,7 @@ from opendxp.profiles.causal_letters import CausalLettersRuntime
 
 
 class SharedPrefix(CausalLettersRuntime):
-    """The reference runtime, with each request's context piece decoded once."""
+    """The reference runtime, decoding only the tokens a row does not share with the last one."""
 
     def __init__(self, package: Any, *, device: str, threads: int) -> None:
         super().__init__(package, device=device, threads=threads)
@@ -36,9 +37,7 @@ class SharedPrefix(CausalLettersRuntime):
         cp = lc.llama_context_default_params()
         cp.n_ctx = cp.n_batch = self.n_ctx
         cp.n_ubatch = min(int(decode["ubatch"]), self.n_ctx)
-        # Two sequences in one unified cache, so the prefix can be copied.
-        cp.n_seq_max = 2
-        cp.kv_unified = True
+        cp.n_seq_max = 1
         cp.flash_attn_type = {
             "auto": lc.LLAMA_FLASH_ATTN_TYPE_AUTO,
             "enabled": lc.LLAMA_FLASH_ATTN_TYPE_ENABLED,
@@ -46,36 +45,38 @@ class SharedPrefix(CausalLettersRuntime):
         }[decode["flash_attention"]]
         kv = lc.GGML_TYPE_F16 if decode["kv_cache"] == "f16" else lc.GGML_TYPE_F32
         cp.type_k = cp.type_v = kv
+        if hasattr(cp, "op_offload"):
+            cp.op_offload = self.gpu
         cp.n_threads = cp.n_threads_batch = self.threads
         self.ctx = lc.llama_init_from_model(self.model, cp)
         self.memory = lc.llama_get_memory(self.ctx)
-        self.prefix: list[int] = []
+        lc.llama_memory_clear(self.memory, True)
+        self.cached: list[int] = []
+        self.decoded = self.tokens_total = 0
 
-    def _decode(self, tokens: list[int], start: int, seq: int, logits_last: bool) -> None:
+    def _decode(self, tokens: list[int], start: int) -> None:
         b = self.batch
         for i, t in enumerate(tokens):
             b.token[i] = t
             b.pos[i] = start + i
             b.n_seq_id[i] = 1
-            b.seq_id[i][0] = seq
-            b.logits[i] = logits_last and i == len(tokens) - 1
+            b.seq_id[i][0] = 0
+            b.logits[i] = i == len(tokens) - 1
         b.n_tokens = len(tokens)
         if self.lc.llama_decode(self.ctx, b) != 0:
             raise RuntimeError("llama_decode failed")
 
-    def distributions(self, state: Any, questions: Any) -> Any:
-        self.prefix = self.builder.context(state)
-        self.lc.llama_memory_clear(self.memory, True)
-        self._decode(self.prefix, 0, 0, False)
-        return super().distributions(state, questions)
-
     def slot_logits(self, ids: list[int], label_ids: list[int]) -> np.ndarray:
-        lc, n = self.lc, len(self.prefix)
-        if ids[:n] != self.prefix or len(ids) == n:
-            raise RuntimeError("a row does not continue the request's context piece")
-        lc.llama_memory_seq_rm(self.memory, 1, -1, -1)
-        lc.llama_memory_seq_cp(self.memory, 0, 1, -1, -1)
-        self._decode(ids[n:], n, 1, True)
+        lc = self.lc
+        # What the cache holds of this row already; its last token is always decoded, for logits.
+        n, limit = 0, min(len(self.cached), len(ids) - 1)
+        while n < limit and self.cached[n] == ids[n]:
+            n += 1
+        lc.llama_memory_seq_rm(self.memory, 0, n, -1)
+        self._decode(ids[n:], n)
+        self.cached = list(ids)
+        self.decoded += len(ids) - n
+        self.tokens_total += len(ids)
         pointer = ctypes.cast(
             lc.llama_get_logits_ith(self.ctx, len(ids) - n - 1), ctypes.POINTER(ctypes.c_float)
         )
@@ -123,6 +124,8 @@ def main() -> None:
         runtime = cls(package, device=args.device, threads=args.threads)
         try:
             report[label] = run(runtime, cases)
+            if isinstance(runtime, SharedPrefix) and runtime.tokens_total:
+                report[label]["tokens_decoded"] = f"{runtime.decoded}/{runtime.tokens_total}"
         finally:
             runtime.close()
         print(label, json.dumps(report[label]), flush=True)
