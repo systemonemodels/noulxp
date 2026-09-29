@@ -194,10 +194,11 @@ as a bigger model's answers, to match their spread. Use requests the model was
 not trained on.
 The package is untouched: `opendxp check` still checks it at its own
 temperatures, and a server answering at a fitted file names it (its sha256) in
-`/v1/models`. On the typed-decisions test split, temperatures fitted on 1,200
-labelled requests took Julia 1's KL from the gold from 2.78 to 0.23 and its
-Brier score from 0.336 to 0.114, with the same decisions. `run`, `serve`, `mcp`
-and `bench` take `--calibration`; in Python, `opendxp.load(path, calibration=...)`.
+`/v1/models`. On the typed-decisions test split, Julia 1 answers with a mean
+confidence of 0.96 and is right 72 % of the time; fitted to 50 held-out
+requests labelled with one option each, its confidence came to 0.72 (ECE 0.236
+to 0.044), with the same decisions. `run`, `serve`, `mcp` and `bench` take
+`--calibration`; in Python, `opendxp.load(path, calibration=...)`.
 
 ## Give it to an AI agent (MCP)
 
