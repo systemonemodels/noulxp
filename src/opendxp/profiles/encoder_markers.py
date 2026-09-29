@@ -273,7 +273,8 @@ class EncoderMarkersRuntime:
             self._check_signature()
             self.session = None
         else:
-            self.session, _ = ort_session(
+            # The providers the session loaded, which is what describe() reports.
+            self.session, self.providers = ort_session(
                 package.file("weights"),
                 provider=provider,
                 threads=threads,

@@ -92,7 +92,18 @@ def ort_session(
     names = choose_onnx_providers(provider)
     providers = [(n, PROVIDER_OPTIONS[n]) if n in PROVIDER_OPTIONS else n for n in names]
     session = ort.InferenceSession(str(path), options, providers=providers)
-    return session, names
+    # onnxruntime drops a provider it cannot load (a CUDA library of the wrong version, say)
+    # with one log line and runs on the rest. A provider that was asked for by name and did
+    # not load is an error, so that a check or a bench that says CUDA ran on CUDA.
+    loaded = list(session.get_providers())
+    missing = [n for n in names if n not in loaded]
+    if missing and (provider or "auto").strip().lower() != "auto":
+        raise BackendUnavailable(
+            f"{missing[0]} is in this onnxruntime build but did not load, so it would run on "
+            f"{', '.join(loaded)}: check the libraries it needs (for CUDA, the CUDA and cuDNN "
+            "versions this onnxruntime release was built for)"
+        )
+    return session, loaded
 
 
 def llama_gpu_offload() -> bool:
