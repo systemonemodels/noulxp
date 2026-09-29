@@ -160,6 +160,13 @@ A causal-letters package can read a request's rows together:
 Python runtime. Whether that keeps a package compatible on a given machine is
 what `opendxp check --batch-rows 16` answers.
 
+GPUs trade precision for speed by default (TF32 in ONNX Runtime, 16-bit
+accumulation in llama.cpp's CUDA backend). `--precision exact` asks for
+float32 products on `check`, `bench`, `serve` and `mcp`: on an NVIDIA A40 it
+brought every encoder package to the CPU's numbers and made AnyJev's BF16
+package pass on CUDA, costing 1 to 50 % of the speed (SPEC.md 8.1). Check at the
+precision you serve with.
+
 ## Give it to an AI agent (MCP)
 
 `opendxp mcp` serves packages as tools of the Model Context Protocol, on
