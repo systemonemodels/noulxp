@@ -94,6 +94,7 @@ def cmd_check(args: argparse.Namespace) -> int:
         options["optimization"] = args.optimization
     if args.batch_rows and args.batch_rows > 1:
         options["batch_rows"] = args.batch_rows
+        options["batch_cache"] = args.batch_cache
     report = check(
         Path(args.package),
         device=args.device,
@@ -239,7 +240,11 @@ def cmd_bench(args: argparse.Namespace) -> int:
             warmup=args.warmup,
             usd_per_hour=args.usd_per_hour,
             log=_stderr,
-            **({"batch_rows": args.batch_rows} if args.batch_rows and args.batch_rows > 1 else {}),
+            **(
+                {"batch_rows": args.batch_rows, "batch_cache": args.batch_cache}
+                if args.batch_rows and args.batch_rows > 1
+                else {}
+            ),
         )
     if args.report:
         Path(args.report).write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
@@ -313,6 +318,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument(
         "--batch-rows", type=int, help="causal-letters: decode this many rows together (serving)"
     )
+    p.add_argument("--batch-cache", choices=["shared", "per-row"], default="shared")
     p.set_defaults(func=cmd_check)
 
     p = sub.add_parser("validate", help="check a package's files against the schemas and hashes")
@@ -371,6 +377,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument(
         "--batch-rows", type=int, help="causal-letters: decode this many rows together (packages)"
     )
+    p.add_argument("--batch-cache", choices=["shared", "per-row"], default="shared")
     p.add_argument("--usd-per-hour", type=float, help="the machine's price, for the cost per 1,000")
     p.add_argument("--report", help="where to write the JSON report")
     p.set_defaults(func=cmd_bench)

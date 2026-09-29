@@ -251,10 +251,15 @@ class CausalLettersRuntime:
         threads: int | None = None,
         max_tokens: int = 8192,
         batch_rows: int = 1,
+        batch_cache: str = "shared",
     ) -> None:
         """`batch_rows` above 1 decodes up to that many rows together, each as its own
         sequence from empty memory, in one call: a serving choice, not part of the
-        package, so a runtime using it is checked like any other (`opendxp check`)."""
+        package, so a runtime using it is checked like any other (`opendxp check`).
+        `batch_cache` "shared" keeps one cache for the call's rows (each row still
+        attends only to itself); "per-row" gives each row a cache of its own, so a
+        row's attention does not scan the others' cells, at batch_rows times the
+        cache's memory."""
         try:
             import llama_cpp as lc
         except ImportError as exc:
@@ -288,14 +293,19 @@ class CausalLettersRuntime:
         cp = lc.llama_context_default_params()
         # A whole row must fit one decode: llama.cpp aborts a decode larger than n_batch.
         decode = self.prompt.decode
-        cp.n_ctx = self.n_ctx
-        cp.n_batch = self.n_ctx
-        cp.n_ubatch = min(int(decode["ubatch"]), self.n_ctx)
         self.batch_rows = max(1, int(batch_rows))
+        if batch_cache not in ("shared", "per-row"):
+            raise ValueError("batch_cache is 'shared' or 'per-row'")
+        per_row = self.batch_rows > 1 and batch_cache == "per-row"
+        # Tokens one call may hold: a row, or up to batch_rows rows.
+        self.n_tokens = self.n_ctx * (self.batch_rows if per_row else 1)
+        cp.n_ctx = self.n_tokens
+        cp.n_batch = self.n_tokens
+        cp.n_ubatch = min(int(decode["ubatch"]), self.n_tokens)
         cp.n_seq_max = self.batch_rows
         if self.batch_rows > 1:
-            # The rows of one call share the context's cells, each row its own sequence.
-            cp.kv_unified = True
+            # Each row is its own sequence; shared: one cache for all of a call's rows.
+            cp.kv_unified = not per_row
         cp.flash_attn_type = {
             "auto": lc.LLAMA_FLASH_ATTN_TYPE_AUTO,
             "enabled": lc.LLAMA_FLASH_ATTN_TYPE_ENABLED,
@@ -311,7 +321,7 @@ class CausalLettersRuntime:
         self.n_vocab = lc.llama_vocab_n_tokens(lc.llama_model_get_vocab(self.model))
         if max(self.builder.label_ids) >= self.n_vocab:
             raise PackageError("the tokenizer's label ids are outside the model's vocabulary")
-        self.batch = lc.llama_batch_init(self.n_ctx, 0, 1)
+        self.batch = lc.llama_batch_init(self.n_tokens, 0, 1)
         self.load_ms = (time.perf_counter() - started) * 1000
 
     def describe(self) -> dict[str, Any]:
@@ -386,7 +396,7 @@ class CausalLettersRuntime:
                 raise RequestError(
                     f"a prompt row is {len(ids)} tokens; this runtime reads {self.n_ctx}"
                 )
-            if chunk and (len(chunk) >= self.batch_rows or used + len(ids) > self.n_ctx):
+            if chunk and (len(chunk) >= self.batch_rows or used + len(ids) > self.n_tokens):
                 flush()
                 used = 0
             chunk.append(index)
