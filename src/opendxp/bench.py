@@ -16,6 +16,7 @@ same machine and device, and publish both.
 
 from __future__ import annotations
 
+import http.client
 import itertools
 import json
 import os
@@ -23,6 +24,7 @@ import statistics
 import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
@@ -166,24 +168,67 @@ def bench_package(
 # --- a server, over HTTP --------------------------------------------------------------
 
 
+class _Connection:
+    """One client's connection to the server, kept open between its requests.
+
+    An SDK keeps its connection alive; a client that opens one per request measures
+    the server accepting connections as much as answering.
+    """
+
+    def __init__(self, url: str, token: str | None, timeout: float) -> None:
+        parts = urllib.parse.urlsplit(url)
+        self.https = parts.scheme == "https"
+        self.host = parts.hostname or "127.0.0.1"
+        self.port = parts.port
+        self.path = (parts.path or "/") + (f"?{parts.query}" if parts.query else "")
+        self.timeout = timeout
+        self.headers = {"Content-Type": "application/json", "Accept": "application/json"}
+        if token:
+            self.headers["Authorization"] = f"Bearer {token}"
+        self.conn: http.client.HTTPConnection | None = None
+
+    def post(self, body: dict[str, Any]) -> tuple[int, dict[str, Any] | None, float | None]:
+        """(status, answer, the Retry-After the server asked for)."""
+        data = json.dumps(body).encode()
+        for attempt in (1, 2):
+            if self.conn is None:
+                kind = http.client.HTTPSConnection if self.https else http.client.HTTPConnection
+                self.conn = kind(self.host, self.port, timeout=self.timeout)
+            try:
+                self.conn.request("POST", self.path, body=data, headers=self.headers)
+                response = self.conn.getresponse()
+                raw = response.read()
+            except (http.client.HTTPException, OSError) as exc:
+                self.close()
+                stale = isinstance(exc, (http.client.RemoteDisconnected, ConnectionResetError))
+                if attempt == 1 and stale:
+                    continue  # the server closed the idle connection: once more on a new one
+                return 0, {"error": type(exc).__name__}, None
+            if (response.getheader("Connection") or "").lower() == "close":
+                self.close()
+            if response.status != 200:
+                return response.status, None, _seconds(response.getheader("Retry-After"))
+            try:
+                return 200, json.loads(raw) if raw else None, None
+            except ValueError:
+                return 200, None, None
+        return 0, {"error": "closed"}, None
+
+    def close(self) -> None:
+        if self.conn is not None:
+            self.conn.close()
+            self.conn = None
+
+
 def _post(
     url: str, body: dict[str, Any], token: str | None, timeout: float
 ) -> tuple[int, dict[str, Any] | None, float | None]:
-    """(status, answer, the Retry-After the server asked for)."""
-    headers = {"Content-Type": "application/json", "Accept": "application/json"}
-    if token:
-        headers["Authorization"] = f"Bearer {token}"
-    data = json.dumps(body).encode()
-    request = urllib.request.Request(url, data=data, headers=headers, method="POST")
+    """One request on a connection of its own."""
+    connection = _Connection(url, token, timeout)
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            raw = response.read()
-            return response.status, json.loads(raw) if raw else None, None
-    except urllib.error.HTTPError as exc:
-        exc.read()
-        return exc.code, None, _seconds(exc.headers.get("Retry-After"))
-    except (urllib.error.URLError, TimeoutError, ConnectionError) as exc:
-        return 0, {"error": type(exc).__name__}, None
+        return connection.post(body)
+    finally:
+        connection.close()
 
 
 def _seconds(value: str | None) -> float | None:
@@ -229,12 +274,19 @@ def _level(
     deadline = time.perf_counter() + duration_s
 
     def client() -> None:
+        connection = _Connection(endpoint, token, timeout_s)
+        try:
+            ask(connection)
+        finally:
+            connection.close()
+
+    def ask(connection: _Connection) -> None:
         nonlocal decisions
         while time.perf_counter() < deadline:
             with lock:
                 body = bodies[next(order)]
             began = time.perf_counter()
-            status, answer, retry_after = _post(endpoint, body, token, timeout_s)
+            status, answer, retry_after = connection.post(body)
             took = (time.perf_counter() - began) * 1000
             with lock:
                 if status == 200 and answer is not None:
