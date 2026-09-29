@@ -22,7 +22,13 @@ KL(label || answer) over its labelled questions (the log loss, for one-hot label
 searched over [0.01, 1000]. The report scores the answers before and after with the
 four numbers decision benchmarks use: accuracy (a tie among the leading options
 earns its chance), KL (answers floored at 1e-6), Brier (the sum over options of the
-squared difference) and top-label ECE (10 equal bins).
+squared difference) and top-label ECE (10 equal bins), and the mean confidence.
+
+What the labels are decides what the answers are calibrated to. One option per
+question (what was right) fits them to how often the model is right: its mean
+confidence comes to its accuracy. Distributions (another model's answers, several
+annotators) fit them to that spread. Fit on requests the model was not trained on:
+on data it has seen, it is right more often than it will be, and the fit says so.
 """
 
 from __future__ import annotations

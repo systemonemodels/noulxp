@@ -186,8 +186,12 @@ model's, say):
 ```
 
 It fits one temperature per question type (the least mean KL from the labels,
-the log loss for one-hot labels), prints accuracy, KL, Brier and ECE before and
-after, and writes a calibration.json whose `source` records the labels' hash.
+the log loss for one-hot labels), prints confidence, accuracy, KL, Brier and ECE
+before and after, and writes a calibration.json whose `source` records the
+labels' hash. Label with what was right (one option per question) to make the
+model's confidence match how often it is right; label with distributions, such
+as a bigger model's answers, to match their spread. Use requests the model was
+not trained on.
 The package is untouched: `opendxp check` still checks it at its own
 temperatures, and a server answering at a fitted file names it (its sha256) in
 `/v1/models`. On the typed-decisions test split, temperatures fitted on 1,200
