@@ -16,7 +16,14 @@ import json
 from pathlib import Path
 from typing import Any
 
-from opendxp.export.common import entry, manifest, place, write_json, write_manifest
+from opendxp.export.common import (
+    entry,
+    manifest,
+    place,
+    require_transformers,
+    write_json,
+    write_manifest,
+)
 from opendxp.export.encoder import (
     calibration_ok,
     sample_batches,
@@ -75,6 +82,7 @@ def template(special: dict[str, str], total: int = 8192, head: int = 512) -> dic
 
 def build_model(checkpoint: Path) -> Any:
     """JuliaDecisionModel (inference subset), weights loaded strictly, float32, eval."""
+    require_transformers()
     import torch
     from safetensors.torch import load_file
     from torch import nn

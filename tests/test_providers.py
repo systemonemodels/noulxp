@@ -31,3 +31,15 @@ def test_a_named_provider_that_does_not_load_is_an_error(
     # "auto" takes the best that loads, and says which.
     _, loaded = ort_session(tmp_path / "model.onnx", provider="auto")
     assert loaded == ["CPUExecutionProvider"]
+
+
+def test_encoder_export_refuses_an_old_transformers(monkeypatch: pytest.MonkeyPatch) -> None:
+    import importlib.metadata
+
+    from opendxp.export.common import require_transformers
+
+    monkeypatch.setattr(importlib.metadata, "version", lambda name: "4.57.6")
+    with pytest.raises(BackendUnavailable, match=r"transformers 4\.57\.6 .* 5\.2 or later"):
+        require_transformers()
+    monkeypatch.setattr(importlib.metadata, "version", lambda name: "5.17.0")
+    require_transformers()

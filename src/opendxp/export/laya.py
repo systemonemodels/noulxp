@@ -15,7 +15,14 @@ import json
 from pathlib import Path
 from typing import Any
 
-from opendxp.export.common import entry, manifest, place, write_json, write_manifest
+from opendxp.export.common import (
+    entry,
+    manifest,
+    place,
+    require_transformers,
+    write_json,
+    write_manifest,
+)
 from opendxp.export.encoder import (
     calibration_ok,
     sample_batches,
@@ -124,6 +131,7 @@ def calibration(cfg: dict[str, Any]) -> dict[str, Any]:
 
 def build_model(checkpoint: Path) -> Any:
     """The `laya` package's own model, loaded as laya.Agent loads it (float32, eval)."""
+    require_transformers()
     from laya.common import build_model as laya_build_model
     from safetensors.torch import load_file
 

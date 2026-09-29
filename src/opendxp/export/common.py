@@ -11,8 +11,37 @@ from pathlib import Path
 from typing import Any
 
 from opendxp import __version__
+from opendxp.errors import BackendUnavailable
 from opendxp.package import MANIFEST, sha256_file
 from opendxp.spec import BASE
+
+# The encoder converters trace the model as transformers builds it. Older releases compute
+# ModernBERT (Laya, Julia 1) differently: exported with 4.57.6, Julia 1 passed 7 of its 52
+# conformance cases and Laya multilingual 2. The graph agrees with the model it was traced
+# from, so the converter's own comparison with torch cannot see it; only the conformance
+# file, recorded with the model's own code, does.
+MIN_TRANSFORMERS = (5, 2)
+
+
+def require_transformers() -> None:
+    """Refuse to export an encoder with a transformers release older than MIN_TRANSFORMERS."""
+    import importlib.metadata
+    import re
+
+    try:
+        found = importlib.metadata.version("transformers")
+    except importlib.metadata.PackageNotFoundError as exc:
+        raise BackendUnavailable(
+            'the encoder converters need transformers: pip install "opendxp[export]"'
+        ) from exc
+    have = tuple(int(part) for part in re.findall(r"\d+", found)[: len(MIN_TRANSFORMERS)])
+    if have < MIN_TRANSFORMERS:
+        wanted = ".".join(map(str, MIN_TRANSFORMERS))
+        raise BackendUnavailable(
+            f"transformers {found} is installed and the encoder converters need {wanted} or "
+            "later: older releases compute ModernBERT differently, and the package would not "
+            f'give the model\'s own answers (pip install "transformers>={wanted}")'
+        )
 
 
 def write_json(path: Path, data: Any) -> None:
