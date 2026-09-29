@@ -52,7 +52,7 @@ class SharedPrefix(CausalLettersRuntime):
         self.memory = lc.llama_get_memory(self.ctx)
         lc.llama_memory_clear(self.memory, True)
         self.cached: list[int] = []
-        self.decoded = self.tokens_total = 0
+        self.decoded = self.tokens_total = self.restarts = 0
 
     def _decode(self, tokens: list[int], start: int) -> None:
         b = self.batch
@@ -72,8 +72,18 @@ class SharedPrefix(CausalLettersRuntime):
         n, limit = 0, min(len(self.cached), len(ids) - 1)
         while n < limit and self.cached[n] == ids[n]:
             n += 1
-        lc.llama_memory_seq_rm(self.memory, 0, n, -1)
-        self._decode(ids[n:], n)
+        # Some caches (sliding-window attention) cannot drop a suffix: those rows start over.
+        if n and not lc.llama_memory_seq_rm(self.memory, 0, n, -1):
+            lc.llama_memory_clear(self.memory, True)
+            n, self.restarts = 0, self.restarts + 1
+        try:
+            self._decode(ids[n:], n)
+        except RuntimeError:
+            if not n:
+                raise
+            lc.llama_memory_clear(self.memory, True)
+            n, self.restarts = 0, self.restarts + 1
+            self._decode(ids, 0)
         self.cached = list(ids)
         self.decoded += len(ids) - n
         self.tokens_total += len(ids)
@@ -126,6 +136,7 @@ def main() -> None:
             report[label] = run(runtime, cases)
             if isinstance(runtime, SharedPrefix) and runtime.tokens_total:
                 report[label]["tokens_decoded"] = f"{runtime.decoded}/{runtime.tokens_total}"
+                report[label]["rows_started_over"] = runtime.restarts
         finally:
             runtime.close()
         print(label, json.dumps(report[label]), flush=True)
