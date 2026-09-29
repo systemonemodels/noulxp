@@ -47,6 +47,9 @@ class SharedPrefix(CausalLettersRuntime):
         cp.type_k = cp.type_v = kv
         if hasattr(cp, "op_offload"):
             cp.op_offload = self.gpu
+        if hasattr(cp, "swa_full"):
+            # A sliding-window model's cache keeps every position, so a row's suffix can be dropped.
+            cp.swa_full = True
         cp.n_threads = cp.n_threads_batch = self.threads
         self.ctx = lc.llama_init_from_model(self.model, cp)
         self.memory = lc.llama_get_memory(self.ctx)
