@@ -8,8 +8,10 @@
   Brier and ECE before and after, on the labels and on `--test`. The model is
   read once; each temperature is the least mean KL(label || answer), from a
   log-spaced grid refined by golden-section search. On the typed-decisions test
-  split, Julia 1's KL from the gold went from 2.78 to 0.23, with the same
-  decisions.
+  split, 50 held-out requests labelled with one option each brought Julia 1's
+  mean confidence from 0.96 to 0.72, its accuracy (ECE 0.236 to 0.044), and the
+  benchmark's distributions took its KL from the gold from 2.78 to 0.23, with
+  the same decisions.
 - **`--calibration FILE`** on `run`, `serve`, `mcp` and `bench`, and
   `load(..., calibration=...)`: answer with another calibration.json than the
   package's. The package's conformance file is still replayed at its own

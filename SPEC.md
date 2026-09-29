@@ -542,10 +542,13 @@ a distribution over the options, or an answer object, such as another
 model's), and writes a calibration.json with, for each question type, the
 temperature of least mean KL(label || answer), searched over [0.01, 1000];
 `source` records the labels' sha256 and the package's own temperatures. On the
-typed-decisions test split (opendxp-paper, E9), the temperatures fitted to
-Julia 1's answers on 1,200 labelled training requests take its mean KL from
-the gold from 2.78 to 0.23 and its Brier score from 0.336 to 0.114, with the
-same decisions.
+typed-decisions test split (opendxp-paper, E9), Julia 1 answers with a mean
+confidence of 0.96 and is right 72 % of the time; temperatures fitted to 50
+held-out requests labelled with one option per question bring its confidence
+to 0.72 (expected calibration error 0.236 to 0.044), and fitted to the
+benchmark's distributions they take its KL from the gold from 2.78 to 0.23,
+with the same decisions. One option per question calibrates to how often a
+model is right; distributions calibrate to their spread.
 
 ## 8. Batching and state sharing
 
