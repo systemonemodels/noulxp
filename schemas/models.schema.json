@@ -34,6 +34,15 @@
               "decisions_equal": {"type": "string"},
               "device": {"type": ["string", "null"]}
             }
+          },
+          "calibration": {
+            "description": "The calibration.json the server answers with in place of the package's (SPEC.md 7.1); null when it answers with the package's.",
+            "type": ["object", "null"],
+            "required": ["sha256"],
+            "properties": {
+              "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+              "temperature": {"type": ["object", "null"]}
+            }
           }
         }
       }

@@ -203,7 +203,8 @@ def replay(
     """The package's conformance file through a runtime that is already loaded.
 
     An engine can check a package as it serves it (its device, precision and settings)
-    without loading it twice. The runtime is left open.
+    without loading it twice. The runtime is left open. A runtime given another
+    calibration (SPEC.md 7.1) is checked at its package's, which the file was recorded at.
     """
     from opendxp.providers import describe_machine
 
@@ -211,6 +212,9 @@ def replay(
     entry = package.manifest.get("conformance") or {"path": CONFORMANCE_FILE}
     cases = read_jsonl(package.resolve(entry["path"]))
     described = runtime.describe()
+
+    own = getattr(runtime, "package_calibration", None)
+    at = {"calibration": own} if own is not None else {}
 
     order = list(cases)
     if getattr(runtime, "static", False):
@@ -230,13 +234,13 @@ def replay(
         if "expected" in case and key not in warmed:  # warm-up (and compilation), not timed
             warmed.add(key)
             try:
-                runtime.distributions(state, questions)
+                runtime.distributions(state, questions, **at)
             except RequestError:
                 pass
         began = time.perf_counter()
         observed: Any
         try:
-            observed, usage = runtime.distributions(state, questions)
+            observed, usage = runtime.distributions(state, questions, **at)
             refused = None
         except RequestError as exc:
             observed, usage, refused = None, None, exc

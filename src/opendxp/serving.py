@@ -49,6 +49,7 @@ class ServedModel:
             "question_types": list(spec.QUESTION_TYPES),
             "limits": self.package.limits,
             "conformance": self.conformance,
+            "calibration": getattr(self.runtime, "calibration_replaced", None),
         }
 
     def answer(self, state: Any, questions: Any) -> dict[str, Any]:
@@ -84,10 +85,16 @@ def load_models(
     check: bool = False,
     log: Any = print,
     precision: str = "fast",
+    calibration: str | Path | None = None,
 ) -> list[ServedModel]:
-    """Open and load each package; with `check`, run its conformance file first."""
+    """Open and load each package; with `check`, run its conformance file first.
+
+    `calibration` is a calibration.json to answer with in place of the package's
+    (SPEC.md 7.1), for a server of one package; the check is of the package as it is."""
     from opendxp.runtime import load
 
+    if calibration is not None and len(paths) != 1:
+        raise ValueError("a calibration file is for one package: serve the others apart")
     models: list[ServedModel] = []
     for path in paths:
         package = open_package(path)
@@ -98,7 +105,11 @@ def load_models(
             log(f"checking {package.name} against its conformance file ...")
             report = summarise(run_check(Path(path), device="cpu", threads=threads, log=log))
         log(f"loading {package.name} ({package.profile}) ...")
-        runtime = load(package, device=device, threads=threads, precision=precision)
+        runtime = load(
+            package, device=device, threads=threads, precision=precision, calibration=calibration
+        )
+        if calibration is not None:
+            log(f"answering at {calibration} in place of {package.name}'s calibration")
         models.append(ServedModel(package.name, package, runtime, conformance=report))
     ids = [m.id for m in models]
     if len(set(ids)) != len(ids):

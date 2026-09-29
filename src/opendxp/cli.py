@@ -4,9 +4,10 @@ opendxp export laya|julia|decider|anyjev CHECKPOINT OUT_DIR
 opendxp conformance generate PACKAGE --native CHECKPOINT --runtime laya|julia|decider|anyjev
 opendxp check PACKAGE [--device cpu|auto|coreml|cuda|openvino|qnn|directml|gpu]
 opendxp validate PACKAGE
-opendxp run PACKAGE --request request.json
+opendxp run PACKAGE --request request.json [--calibration calibration.json]
 opendxp serve PACKAGE... [--host 127.0.0.1] [--port 8790] [--token TOKEN] [--check]
 opendxp mcp PACKAGE...
+opendxp calibrate PACKAGE LABELS.jsonl [--test LABELS.jsonl] [--out calibration.json]
 opendxp bench PACKAGE|URL [--concurrency 1,4,16] [--usd-per-hour PRICE]
 opendxp info
 """
@@ -21,6 +22,8 @@ from pathlib import Path
 from typing import Any
 
 from opendxp import __version__
+
+CALIBRATION_HELP = "a calibration.json to answer with in place of the package's (SPEC.md 7.1)"
 
 
 def _print_json(data: Any) -> None:
@@ -145,7 +148,9 @@ def cmd_run(args: argparse.Namespace) -> int:
 
     text = sys.stdin.read() if args.request == "-" else Path(args.request).read_text()
     request = json.loads(text)
-    model = load(Path(args.package), device=args.device, threads=args.threads)
+    model = load(
+        Path(args.package), device=args.device, threads=args.threads, calibration=args.calibration
+    )
     try:
         _print_json(model.predict(request.get("state", ""), request["questions"]))
     finally:
@@ -163,14 +168,19 @@ def cmd_serve(args: argparse.Namespace) -> int:
     from opendxp.serving import load_models
 
     token = args.token or os.environ.get("OPENDXP_TOKEN") or None
-    models = load_models(
-        args.packages,
-        device=args.device,
-        threads=args.threads,
-        check=args.check,
-        log=_stderr,
-        precision=args.precision,
-    )
+    try:
+        models = load_models(
+            args.packages,
+            device=args.device,
+            threads=args.threads,
+            check=args.check,
+            log=_stderr,
+            precision=args.precision,
+            calibration=args.calibration,
+        )
+    except ValueError as exc:
+        _stderr(str(exc))
+        return 2
     try:
         server = serve(
             models,
@@ -205,14 +215,19 @@ def cmd_mcp(args: argparse.Namespace) -> int:
     from opendxp.serving import load_models
 
     protocol = protect_stdout()
-    models = load_models(
-        args.packages,
-        device=args.device,
-        threads=args.threads,
-        check=args.check,
-        log=_stderr,
-        precision=args.precision,
-    )
+    try:
+        models = load_models(
+            args.packages,
+            device=args.device,
+            threads=args.threads,
+            check=args.check,
+            log=_stderr,
+            precision=args.precision,
+            calibration=args.calibration,
+        )
+    except ValueError as exc:
+        _stderr(str(exc))
+        return 2
     _stderr(f"opendxp mcp: {len(models)} model(s) ready on stdio")
     try:
         run(McpServer(models), sys.stdin.buffer, protocol)
@@ -258,10 +273,43 @@ def cmd_bench(args: argparse.Namespace) -> int:
                 else {}
             ),
             **({"precision": args.precision} if args.precision != "fast" else {}),
+            **({"calibration": args.calibration} if args.calibration else {}),
         )
     if args.report:
         Path(args.report).write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
     print(table(report))
+    return 0
+
+
+def cmd_calibrate(args: argparse.Namespace) -> int:
+    from opendxp.calibrate import LabelError, calibrate, table
+
+    out = Path(args.out)
+    if out.resolve().parent == Path(args.package).resolve():
+        _stderr(
+            "write the fitted file outside the package: its files are hashed in odxp.json, and"
+            " its conformance file was recorded with its own calibration"
+        )
+        return 2
+    try:
+        report = calibrate(
+            args.package,
+            args.labels,
+            test=args.test,
+            device=args.device,
+            threads=args.threads,
+            log=_stderr,
+            **({"precision": args.precision} if args.precision != "fast" else {}),
+            **({"batch_rows": args.batch_rows} if args.batch_rows and args.batch_rows > 1 else {}),
+        )
+    except LabelError as exc:
+        _stderr(str(exc))
+        return 2
+    out.write_text(json.dumps(report["calibration"], ensure_ascii=False, indent=2) + "\n")
+    if args.report:
+        Path(args.report).write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
+    print(table(report))
+    _stderr(f"wrote {out}; answer with it: opendxp serve {args.package} --calibration {out}")
     return 0
 
 
@@ -350,6 +398,10 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--request", required=True, help="a request JSON file, or - for stdin")
     p.add_argument("--device", default="auto")
     p.add_argument("--threads", type=int)
+    p.add_argument(
+        "--calibration",
+        help=CALIBRATION_HELP,
+    )
     p.set_defaults(func=cmd_run)
 
     p = sub.add_parser("serve", help="serve packages over the HTTP binding (SPEC.md 11)")
@@ -375,6 +427,10 @@ def main(argv: list[str] | None = None) -> int:
         default="fast",
         help="exact: float32 products on a GPU (no TF32, no 16-bit cuBLAS accumulation), slower",
     )
+    p.add_argument(
+        "--calibration",
+        help=CALIBRATION_HELP + ", for one package",
+    )
     p.set_defaults(func=cmd_serve)
 
     p = sub.add_parser("mcp", help="serve packages as MCP tools on stdio (SPEC.md 12)")
@@ -390,7 +446,30 @@ def main(argv: list[str] | None = None) -> int:
         default="fast",
         help="exact: float32 products on a GPU (no TF32, no 16-bit cuBLAS accumulation), slower",
     )
+    p.add_argument(
+        "--calibration",
+        help=CALIBRATION_HELP + ", for one package",
+    )
     p.set_defaults(func=cmd_mcp)
+
+    p = sub.add_parser(
+        "calibrate", help="fit a package's temperatures to labelled requests (SPEC.md 7.1)"
+    )
+    p.add_argument("package")
+    p.add_argument("labels", help="labelled requests, JSON lines: a request and its labels")
+    p.add_argument("--test", help="labelled requests to score before and after, not fitted to")
+    p.add_argument("--out", default="calibration.json", help="where to write the fitted file")
+    p.add_argument("--report", help="where to write the JSON report")
+    p.add_argument("--device", default="auto")
+    p.add_argument("--threads", type=int)
+    p.add_argument(
+        "--precision",
+        choices=["fast", "exact"],
+        default="fast",
+        help="exact: float32 products on a GPU (no TF32, no 16-bit cuBLAS accumulation), slower",
+    )
+    p.add_argument("--batch-rows", type=int, help="causal-letters: decode this many rows together")
+    p.set_defaults(func=cmd_calibrate)
 
     p = sub.add_parser("bench", help="how fast a package or an OpenDXP server answers")
     p.add_argument("target", help="a package directory, or a server's URL (http://host:port)")
@@ -411,6 +490,10 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--batch-cache", choices=["shared", "per-row"], default="shared")
     p.add_argument("--usd-per-hour", type=float, help="the machine's price, for the cost per 1,000")
     p.add_argument("--report", help="where to write the JSON report")
+    p.add_argument(
+        "--calibration",
+        help=CALIBRATION_HELP + " (packages)",
+    )
     p.add_argument(
         "--precision",
         choices=["fast", "exact"],

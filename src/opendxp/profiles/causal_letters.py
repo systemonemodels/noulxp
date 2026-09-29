@@ -21,14 +21,13 @@ import functools
 import os
 import re
 import time
-from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Protocol
 
 import numpy as np
 
 from opendxp.answers import answer, softmax
-from opendxp.calibration import Calibration
+from opendxp.calibration import Calibration, Readout, described
 from opendxp.errors import BackendUnavailable, PackageError, RequestError
 from opendxp.package import Package
 from opendxp.profiles.encoder_markers import render_option
@@ -233,8 +232,18 @@ def unique_tokens(context: int, pieces: list[list[int]]) -> int:
 
 
 Distributions = tuple[list[tuple[Question, list[float]]], dict[str, int]]
+
+
+class Finish(Protocol):
+    """A request's answers from its rows' logits, at a calibration (default: the runtime's)."""
+
+    def __call__(
+        self, logits: list[np.ndarray], calibration: Calibration | None = None
+    ) -> Distributions: ...
+
+
 # The rows a request needs read, and how to finish it from their logits (in that order).
-Plan = tuple[list[tuple[list[int], list[int]]], Callable[[list[np.ndarray]], Distributions]]
+Plan = tuple[list[tuple[list[int], list[int]]], Finish]
 
 
 class CausalLettersRuntime:
@@ -347,6 +356,7 @@ class CausalLettersRuntime:
             "decode": self.prompt.decode,
             "precision": self.precision,
             "batch_rows": self.batch_rows,
+            "calibration": described(self),
         }
 
     def slot_logits(self, ids: list[int], label_ids: list[int]) -> np.ndarray:
@@ -433,15 +443,18 @@ class CausalLettersRuntime:
         return parsed
 
     def distributions(
-        self, state: Any, questions: Any
+        self, state: Any, questions: Any, calibration: Calibration | None = None
     ) -> tuple[list[tuple[Question, list[float]]], dict[str, int]]:
         wanted, finish = self._plan(state, questions)
-        return finish(self.rows_logits(wanted))
+        return finish(self.rows_logits(wanted), calibration)
 
-    def _plan(self, state: Any, questions: Any) -> Plan:
-        """The rows a request needs read, and how to turn their logits into its answers."""
+    def _plan(self, state: Any, questions: Any, *, every_row: bool = False) -> Plan:
+        """The rows a request needs read, and how to turn their logits into its answers.
+
+        With `every_row`, the rows of priors already cached are wanted too, so the
+        request can be finished at any calibration without reading more."""
         wanted, finish = (
-            self._typed_plan(state, questions)
+            self._typed_plan(state, questions, every_row=every_row)
             if isinstance(self.builder, TypedBuilder)
             else self._plain_plan(state, questions)
         )
@@ -465,11 +478,14 @@ class CausalLettersRuntime:
             for n, (_text, options) in enumerate(r for _q, _kind, rows in planned for r in rows)
         ]
 
-        def finish(logits: list[np.ndarray]) -> Distributions:
+        def finish(
+            logits: list[np.ndarray], calibration: Calibration | None = None
+        ) -> Distributions:
+            calibration = calibration or self.calibration
             got = iter(logits)
             out = []
             for q, kind, rows in planned:
-                t = self.calibration.temperature(q.type, len(q.options))
+                t = calibration.temperature(q.type, len(q.options))
                 probs = [softmax(next(got).tolist(), t) for _row in rows]
                 if kind == "isolated":
                     level = int(self.prompt.score["read"])
@@ -482,7 +498,7 @@ class CausalLettersRuntime:
 
         return wanted, finish
 
-    def _typed_plan(self, state: Any, questions: Any) -> Plan:
+    def _typed_plan(self, state: Any, questions: Any, *, every_row: bool = False) -> Plan:
         """Typed layouts (SPEC.md 6.7, 6.8): a row per rotation, combined per option.
 
         A layout's rows are known before any is read, so they are collected first
@@ -502,14 +518,17 @@ class CausalLettersRuntime:
         # The recording pass must not leave its placeholder priors in the builder's cache
         # of content-free priors: it records into a copy, and the real pass fills the cache.
         cached = builder.probe_priors
-        builder.probe_priors = dict(cached)
+        builder.probe_priors = {} if every_row else dict(cached)
         try:
             for a in asked:
                 builder.distribution(state_text, a, record, 1.0)
         finally:
             builder.probe_priors = cached
 
-        def finish(logits: list[np.ndarray]) -> Distributions:
+        def finish(
+            logits: list[np.ndarray], calibration: Calibration | None = None
+        ) -> Distributions:
+            calibration = calibration or self.calibration
             done = {
                 (tuple(ids), tuple(label)): row
                 for (ids, label), row in zip(wanted, logits, strict=True)
@@ -522,7 +541,7 @@ class CausalLettersRuntime:
 
             out, read = [], []
             for q, a in zip(parsed, asked, strict=True):
-                t = self.calibration.temperature(q.type, len(q.options))
+                t = calibration.temperature(q.type, len(q.options))
                 p, rows = builder.distribution(state_text, a, lookup, t)
                 out.append((q, p))
                 read += rows
@@ -564,6 +583,35 @@ class CausalLettersRuntime:
             }
         return results
 
+    def readouts(self, items: list[tuple[Any, Any]]) -> list[Readout | Exception]:
+        """Each request read once, to be answered at any calibration (opendxp calibrate).
+
+        A request that cannot be asked gets its error."""
+        plans: list[tuple[int, int, Finish] | Exception] = []
+        rows: list[tuple[list[int], list[int]]] = []
+        for state, questions in items:
+            try:
+                wanted, finish = self._plan(state, questions, every_row=True)
+            except (RequestError, ValueError, KeyError, TypeError) as exc:
+                plans.append(exc)
+                continue
+            plans.append((len(rows), len(wanted), finish))
+            rows.extend(wanted)
+        # A prior's rows are the same for every request asking its question: read once.
+        unique: dict[tuple[tuple[int, ...], tuple[int, ...]], int] = {}
+        for ids, read in rows:
+            unique.setdefault((tuple(ids), tuple(read)), len(unique))
+        once = self.rows_logits([(list(ids), list(read)) for ids, read in unique]) if rows else []
+        logits = [once[unique[(tuple(ids), tuple(read))]] for ids, read in rows]
+        results: list[Readout | Exception] = []
+        for plan in plans:
+            if isinstance(plan, Exception):
+                results.append(plan)
+                continue
+            start, count, finish = plan
+            results.append(_readout(finish, logits[start : start + count]))
+        return results
+
     def close(self) -> None:
         lc = self.lc
         if getattr(self, "batch", None) is not None:
@@ -575,3 +623,10 @@ class CausalLettersRuntime:
         if getattr(self, "model", None):
             lc.llama_model_free(self.model)
             self.model = None
+
+
+def _readout(finish: Finish, logits: list[np.ndarray]) -> Readout:
+    def at(calibration: Calibration) -> list[tuple[Question, list[float]]]:
+        return finish(logits, calibration)[0]
+
+    return at

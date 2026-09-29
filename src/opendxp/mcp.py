@@ -209,6 +209,8 @@ def _describe(model: ServedModel) -> str:
         text += f" At most {limits['max_options']} options per question."
     if model.conformance and model.conformance.get("compatible"):
         text += " OpenDXP compatible: it reproduces its model's own answers."
+    if getattr(model.runtime, "calibration_replaced", None):
+        text += " Its probabilities are calibrated to its operator's own labelled examples."
     return text
 
 

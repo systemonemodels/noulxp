@@ -496,3 +496,33 @@ def test_many_requests_at_once_are_answered_as_one_by_one(
     for one, many in zip(alone, together, strict=True):
         if not isinstance(one, Exception):
             assert many == one
+
+
+@pytest.mark.parametrize("prior", ["none", "content-free"])
+def test_readouts_answer_at_any_calibration(tokens: Tokens, hf: ChatTokenizer, prior: str) -> None:
+    data = package_prompt(tokens, hf, prior=prior)
+    rng = random.Random(11)
+    items: list[tuple[Any, Any]] = []
+    for _ in range(8):
+        req = request(rng, "[MASK]", max_options=26)
+        items.append((req["state"], req["questions"]))
+    warm = runtime(tokens, data)
+    for state, questions in items:  # its priors cached at the package's temperatures
+        try:
+            warm.predict(state, questions)
+        except RequestError:
+            pass
+    other = Calibration({"temperature": {"choice": 3.0, "score": 0.5, "noul": 7.0}})
+    read = warm.readouts(items)
+    for (state, questions), at in zip(items, read, strict=True):
+        if isinstance(at, Exception):
+            with pytest.raises(RequestError):
+                runtime(tokens, data).distributions(state, questions)
+            continue
+        for calibration in (warm.calibration, other):
+            # A runtime with nothing cached: its priors read at this calibration's temperatures.
+            want, _ = runtime(tokens, data).distributions(state, questions, calibration)
+            got = at(calibration)
+            assert [q.id for q, _ in got] == [q.id for q, _ in want]
+            for (_, p), (_, w) in zip(got, want, strict=True):
+                assert np.allclose(p, w, atol=1e-12)

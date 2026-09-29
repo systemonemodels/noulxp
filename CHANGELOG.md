@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+- **`opendxp calibrate`** (SPEC.md 7.1): fits a package's temperatures, one per
+  question type, to labelled requests (an option's key, a distribution, or an
+  answer object per question) and writes a calibration.json, with accuracy, KL,
+  Brier and ECE before and after, on the labels and on `--test`. The model is
+  read once; each temperature is the least mean KL(label || answer), from a
+  log-spaced grid refined by golden-section search. On the typed-decisions test
+  split, Julia 1's KL from the gold went from 2.78 to 0.23, with the same
+  decisions.
+- **`--calibration FILE`** on `run`, `serve`, `mcp` and `bench`, and
+  `load(..., calibration=...)`: answer with another calibration.json than the
+  package's. The package's conformance file is still replayed at its own
+  (`conformance.replay` included), discovery names the file by its sha256, and
+  reports say `"calibration": "package"` otherwise.
+- Runtimes have `readouts(items)` (each request read once, answered at any
+  calibration) and `distributions(..., calibration)`.
+- Fixed: the cache of content-free priors was keyed without the temperature, so
+  a runtime answering at two calibrations reused a prior read at the other.
+
 - **`opendxp bench`**: how fast a package (the reference runtime, in this
   process) or any OpenDXP server (over the HTTP binding, at several concurrency
   levels) answers: requests and decisions per second, latency percentiles,

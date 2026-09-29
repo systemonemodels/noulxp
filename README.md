@@ -167,6 +167,34 @@ brought every encoder package to the CPU's numbers and made AnyJev's BF16
 package pass on CUDA, costing 1 to 50 % of the speed (SPEC.md 8.1). Check at the
 precision you serve with.
 
+## Calibrate it to your data
+
+A package's temperatures are data (SPEC.md 7), so how sure a model says it is
+can be fitted to the requests you serve without touching its weights:
+
+```bash
+opendxp calibrate packages/julia-1 labelled.jsonl --test held-out.jsonl --out julia-cal.json
+opendxp serve packages/julia-1 --calibration julia-cal.json
+```
+
+`labelled.jsonl` is one request per line with a label per question: an
+option's key, a distribution over the options, or an answer object (another
+model's, say):
+
+```json
+{"state": "I was charged twice.", "questions": {"intent": {"type": "choice", "criteria": ["refund", "cancel"]}, "angry": {"type": "noul"}}, "labels": {"intent": "refund", "angry": false}}
+```
+
+It fits one temperature per question type (the least mean KL from the labels,
+the log loss for one-hot labels), prints accuracy, KL, Brier and ECE before and
+after, and writes a calibration.json whose `source` records the labels' hash.
+The package is untouched: `opendxp check` still checks it at its own
+temperatures, and a server answering at a fitted file names it (its sha256) in
+`/v1/models`. On the typed-decisions test split, temperatures fitted on 1,200
+labelled requests took Julia 1's KL from the gold from 2.78 to 0.23 and its
+Brier score from 0.336 to 0.114, with the same decisions. `run`, `serve`, `mcp`
+and `bench` take `--calibration`; in Python, `opendxp.load(path, calibration=...)`.
+
 ## Give it to an AI agent (MCP)
 
 `opendxp mcp` serves packages as tools of the Model Context Protocol, on

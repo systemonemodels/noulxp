@@ -22,7 +22,7 @@ from typing import Any
 import numpy as np
 
 from opendxp.answers import answer, softmax
-from opendxp.calibration import Calibration
+from opendxp.calibration import Calibration, Readout, described
 from opendxp.errors import PackageError, RequestError
 from opendxp.package import Package
 from opendxp.providers import STATIC_SHAPE_PROVIDERS, choose_onnx_providers, ort_session
@@ -314,6 +314,7 @@ class EncoderMarkersRuntime:
             "providers": self.providers,
             "static_shapes": self.static,
             "precision": self.precision,
+            "calibration": described(self),
         }
 
     def _bucket_session(self, tokens: int, options: int) -> Any:
@@ -372,9 +373,11 @@ class EncoderMarkersRuntime:
         return [encode_question(self.template, self.tokens, q, state) for q in questions]
 
     def distributions(
-        self, state: Any, questions: Any
+        self, state: Any, questions: Any, calibration: Calibration | None = None
     ) -> tuple[list[tuple[Question, list[float]]], dict[str, int]]:
-        """(question, calibrated probabilities) for every question, and the usage."""
+        """(question, calibrated probabilities) for every question, and the usage; at
+        `calibration` if given, else at the runtime's."""
+        calibration = calibration or self.calibration
         parsed = parse_questions(questions)
         encoded = self.encode(state, parsed)
         feeds = pack(encoded, self.pad_id)
@@ -382,7 +385,7 @@ class EncoderMarkersRuntime:
         out = []
         for i, (q, e) in enumerate(zip(parsed, encoded, strict=True)):
             k = len(e.markers)
-            t = self.calibration.temperature(q.type, k)
+            t = calibration.temperature(q.type, k)
             out.append((q, softmax(logits[i, :k].tolist(), t)))
         usage = {"input_tokens": sum(len(e.ids) for e in encoded), "output_tokens": 0}
         return out, usage
@@ -463,6 +466,41 @@ class EncoderMarkersRuntime:
             results[i] = {"answers": answers, "usage": {"input_tokens": tokens, "output_tokens": 0}}
         return results
 
+    def readouts(self, items: list[tuple[Any, Any]]) -> list[Readout | Exception]:
+        """Each request read once, to be answered at any calibration (opendxp calibrate).
+
+        A request that cannot be asked gets its error."""
+        results: list[Readout | Exception] = []
+        plans: list[tuple[list[Question], int, int] | Exception] = []
+        rows: list[Encoded] = []
+        for state, questions in items:
+            try:
+                parsed = parse_questions(questions)
+                encoded = self.encode(state, parsed)
+            except (RequestError, ValueError, KeyError, TypeError) as exc:
+                plans.append(exc)
+                continue
+            plans.append((parsed, len(rows), len(encoded)))
+            rows.extend(encoded)
+        logits = [row.tolist() for row in self.rows_logits(rows)] if rows else []
+        for plan in plans:
+            if isinstance(plan, Exception):
+                results.append(plan)
+                continue
+            parsed, start, count = plan
+            results.append(_readout(parsed, logits[start : start + count]))
+        return results
+
     def close(self) -> None:
         self.session = None
         self._buckets.clear()
+
+
+def _readout(questions: list[Question], logits: list[list[float]]) -> Readout:
+    def at(calibration: Calibration) -> list[tuple[Question, list[float]]]:
+        return [
+            (q, softmax(z, calibration.temperature(q.type, len(z))))
+            for q, z in zip(questions, logits, strict=True)
+        ]
+
+    return at

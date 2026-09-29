@@ -514,6 +514,39 @@ native runtime **applies**: Laya clamps every temperature to [0.5, 5.0], so a
 shipped 0.1006 becomes 0.5 in calibration.json, and the raw value is kept in
 `source`.
 
+### 7.1 Answering at another calibration
+
+A package's temperatures are the ones its model's own code applies; they need
+not suit the requests an operator serves. A runtime MAY answer with another
+calibration.json (the same schema) in place of the package's. Temperatures
+apply after the model's scores, so another calibration changes probabilities
+and confidences and not what the model read; for encoder-markers it never
+changes which option leads (with rotations or a content-free prior, 6.8, it
+can). A runtime answering at another calibration:
+
+- MUST check the package's conformance file at the package's own calibration,
+  which the file was recorded with: the check is of the package;
+- MUST name the calibration it answers with wherever it describes the model:
+  the file's sha256 in discovery (11.3) and in its reports, where a runtime at
+  the package's own says `"calibration": "package"`;
+- keeps content-free priors (6.8) apart by temperature, since a prior is read
+  at its question's temperature.
+
+The file is not part of the package, whose files are hashed in odxp.json; a
+publisher who changes a package's own calibration publishes a new package,
+with a conformance file its model's code records at the new temperatures.
+
+Fitting (informative): `opendxp calibrate PACKAGE LABELS.jsonl` reads
+labelled requests, each a request and a label per question (an option's key,
+a distribution over the options, or an answer object, such as another
+model's), and writes a calibration.json with, for each question type, the
+temperature of least mean KL(label || answer), searched over [0.01, 1000];
+`source` records the labels' sha256 and the package's own temperatures. On the
+typed-decisions test split (opendxp-paper, E9), the temperatures fitted to
+Julia 1's answers on 1,200 labelled training requests take its mean KL from
+the gold from 2.78 to 0.23 and its Brier score from 0.336 to 0.114, with the
+same decisions.
+
 ## 8. Batching and state sharing
 
 A request's questions are independent: the answer to one MUST NOT depend on the
@@ -664,7 +697,9 @@ model (`schemas/models.schema.json`): `id`, `"object": "model"`, the package's
 `standard` and `profile`, the `question_types` it answers, its `limits`, and
 `conformance`: the server's own check of the package (whether it is
 compatible, the cases passed, the largest difference, the device), or null
-when the server did not run one.
+when the server did not run one; and `calibration`: the sha256 and
+temperatures of the calibration.json it answers with in place of the
+package's (7.1), or null.
 
 ### 11.4 Errors
 
