@@ -218,7 +218,7 @@ class TypedBuilder:
                     raise PackageError(f"two {kind} labels encode to the same token")
                 self.ids[(kind, i)] = ids
         self.label_ids = sorted({t for ids in self.ids.values() for t in ids})
-        self.probe_priors: dict[tuple[str, tuple[int, ...]], np.ndarray] = {}
+        self.probe_priors: dict[tuple[str, tuple[int, ...], float], np.ndarray] = {}
 
     def ask(self, question: Question) -> Asked:
         p, spec = self.prompt, self.layouts.types[question.type]
@@ -262,8 +262,11 @@ class TypedBuilder:
         return render_state(state, self.prompt.data.get("state"))
 
     def prior(self, text: str, read: list[int], logits: Logits, t: float) -> np.ndarray:
-        """The content-free prior of one rotation: the mean distribution over the probes."""
-        key = (text, tuple(read))
+        """The content-free prior of one rotation: the mean distribution over the probes.
+
+        It is read at the question's temperature, so a runtime answering at another
+        calibration (SPEC.md 7.1) does not reuse it."""
+        key = (text, tuple(read), float(t))
         found = self.probe_priors.get(key)
         if found is None:
             probs = [
