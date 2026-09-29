@@ -7,6 +7,7 @@ opendxp validate PACKAGE
 opendxp run PACKAGE --request request.json
 opendxp serve PACKAGE... [--host 127.0.0.1] [--port 8790] [--token TOKEN] [--check]
 opendxp mcp PACKAGE...
+opendxp bench PACKAGE|URL [--concurrency 1,4,16] [--usd-per-hour PRICE]
 opendxp info
 """
 
@@ -206,6 +207,43 @@ def cmd_mcp(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_bench(args: argparse.Namespace) -> int:
+    from opendxp.bench import bench_http, bench_package, load_requests, table, token_from_env
+
+    requests = load_requests(Path(args.requests) if args.requests else None, limit=args.limit)
+    target = args.target
+    if target.startswith(("http://", "https://")):
+        levels = [int(x) for x in str(args.concurrency).split(",") if x.strip()]
+        extra = {"checkpoint": args.checkpoint} if args.checkpoint else None
+        report = bench_http(
+            target,
+            requests,
+            model=args.model,
+            extra=extra,
+            token=args.token or token_from_env(),
+            concurrency=levels,
+            duration_s=args.duration,
+            warmup=args.warmup,
+            usd_per_hour=args.usd_per_hour,
+            log=_stderr,
+        )
+    else:
+        report = bench_package(
+            Path(target),
+            requests,
+            device=args.device,
+            threads=args.threads,
+            rounds=args.rounds,
+            warmup=args.warmup,
+            usd_per_hour=args.usd_per_hour,
+            log=_stderr,
+        )
+    if args.report:
+        Path(args.report).write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
+    print(table(report))
+    return 0
+
+
 def cmd_info(args: argparse.Namespace) -> int:
     from opendxp.providers import describe_machine
     from opendxp.spec import VERSIONS
@@ -310,6 +348,23 @@ def main(argv: list[str] | None = None) -> int:
         "--check", action="store_true", help="run each conformance file first and report it"
     )
     p.set_defaults(func=cmd_mcp)
+
+    p = sub.add_parser("bench", help="how fast a package or an OpenDXP server answers")
+    p.add_argument("target", help="a package directory, or a server's URL (http://host:port)")
+    p.add_argument("--requests", help="a requests JSONL (default: the OpenDXP 0.1 set)")
+    p.add_argument("--limit", type=int, help="only the first N requests")
+    p.add_argument("--model", help="the model to ask, for a server that holds several")
+    p.add_argument("--checkpoint", help="the checkpoint to ask, for an engine that takes one")
+    p.add_argument("--token", help="a bearer token for the server (or set OPENDXP_TOKEN)")
+    p.add_argument("--concurrency", default="1,4,16", help="clients at once, per level (servers)")
+    p.add_argument("--duration", type=float, default=30.0, help="seconds per level (servers)")
+    p.add_argument("--rounds", type=int, default=1, help="passes over the requests (packages)")
+    p.add_argument("--warmup", type=int, default=3, help="requests sent before timing starts")
+    p.add_argument("--device", default="auto", help="the device for a package")
+    p.add_argument("--threads", type=int)
+    p.add_argument("--usd-per-hour", type=float, help="the machine's price, for the cost per 1,000")
+    p.add_argument("--report", help="where to write the JSON report")
+    p.set_defaults(func=cmd_bench)
 
     p = sub.add_parser("info", help="this machine's backends and devices")
     p.set_defaults(func=cmd_info)
