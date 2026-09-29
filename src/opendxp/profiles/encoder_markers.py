@@ -251,8 +251,10 @@ class EncoderMarkersRuntime:
         threads: int | None = None,
         optimization: str = "all",
         static_shapes: bool | None = None,
+        precision: str = "fast",
     ) -> None:
         self.package = package
+        self.precision = precision
         self.template = Template(package.read_json("template"))
         self.tokens = Tokens(package.file("tokenizer"))
         self.calibration = Calibration(package.read_json("calibration"))
@@ -268,7 +270,12 @@ class EncoderMarkersRuntime:
             if static_shapes is not None
             else bool(STATIC_SHAPE_PROVIDERS & set(self.providers))
         )
-        self._options = {"provider": provider, "threads": threads, "optimization": optimization}
+        self._options = {
+            "provider": provider,
+            "threads": threads,
+            "optimization": optimization,
+            "precision": precision,
+        }
         self._buckets: dict[tuple[int, int], Any] = {}
         started = time.perf_counter()
         if self.static:
@@ -285,6 +292,7 @@ class EncoderMarkersRuntime:
                 provider=provider,
                 threads=threads,
                 optimization=optimization,
+                precision=precision,
             )
             self._check_signature()
         self.load_ms = (time.perf_counter() - started) * 1000
@@ -305,6 +313,7 @@ class EncoderMarkersRuntime:
             "backend": f"onnxruntime {ort.__version__}",
             "providers": self.providers,
             "static_shapes": self.static,
+            "precision": self.precision,
         }
 
     def _bucket_session(self, tokens: int, options: int) -> Any:

@@ -33,6 +33,7 @@ from opendxp.errors import BackendUnavailable, PackageError, RequestError
 from opendxp.package import Package
 from opendxp.profiles.encoder_markers import render_option
 from opendxp.profiles.typed import TypedBuilder, TypedLayouts, trie_tokens
+from opendxp.providers import PRECISIONS
 from opendxp.request import Question, parse_questions
 from opendxp.spec import at_least
 from opendxp.text import STATE_JSON, fill, render_state
@@ -252,6 +253,7 @@ class CausalLettersRuntime:
         max_tokens: int = 8192,
         batch_rows: int = 1,
         batch_cache: str = "shared",
+        precision: str = "fast",
     ) -> None:
         """`batch_rows` above 1 decodes up to that many rows together, each as its own
         sequence from empty memory, in one call: a serving choice, not part of the
@@ -283,6 +285,13 @@ class CausalLettersRuntime:
         if wanted not in ("auto", "cpu") and not can_offload:
             raise BackendUnavailable(f"this llama.cpp build has no GPU backend for {device!r}")
         self.gpu = wanted != "cpu" and can_offload
+        if precision not in PRECISIONS:
+            raise ValueError(f"precision is one of {', '.join(PRECISIONS)}, not {precision!r}")
+        self.precision = precision
+        if precision == "exact" and self.gpu:
+            # llama.cpp's CUDA and HIP backends multiply F16 and BF16 weights with 16-bit
+            # accumulation unless told otherwise. The switch holds for the whole process.
+            os.environ["GGML_CUDA_CUBLAS_COMPUTE_TYPE"] = "f32"
         params = lc.llama_model_default_params()
         params.n_gpu_layers = -1 if self.gpu else 0
         started = time.perf_counter()
@@ -336,6 +345,7 @@ class CausalLettersRuntime:
             "threads": self.threads,
             "n_ctx": self.n_ctx,
             "decode": self.prompt.decode,
+            "precision": self.precision,
         }
 
     def slot_logits(self, ids: list[int], label_ids: list[int]) -> np.ndarray:

@@ -38,6 +38,13 @@ PROVIDER_OPTIONS: dict[str, dict[str, str]] = {
     "QNNExecutionProvider": {"backend_path": "QnnHtp.dll" if os.name == "nt" else "libQnnHtp.so"},
 }
 OPTIMIZATION = ("disable", "basic", "extended", "all")
+# How exactly a GPU computes. "fast" is each backend's default; "exact" asks for float32 products
+# where the default is a faster, less precise format. On an NVIDIA A40, ONNX Runtime's TF32
+# moved Julia 1's probabilities by up to 0.0067 and float32 by 0.00005 (1-33 % slower), and
+# llama.cpp's 16-bit cuBLAS accumulation moved AnyJev's by 0.049 and float32 by 0.008-0.014
+# (half the speed). A serving choice, checked like any other (`opendxp check --precision`).
+PRECISIONS = ("fast", "exact")
+EXACT_OPTIONS: dict[str, dict[str, str]] = {"CUDAExecutionProvider": {"use_tf32": "0"}}
 # Providers that compile a graph for fixed shapes. An engine pins the graph's symbolic
 # dimensions ("batch", "tokens", "options"; SPEC.md 5.4) to a bucket and pads to it.
 STATIC_SHAPE_PROVIDERS = frozenset({"CoreMLExecutionProvider", "QNNExecutionProvider"})
@@ -72,9 +79,12 @@ def ort_session(
     threads: int | None = None,
     optimization: str = "all",
     fixed: dict[str, int] | None = None,
+    precision: str = "fast",
 ) -> tuple[Any, list[str]]:
     import onnxruntime as ort
 
+    if precision not in PRECISIONS:
+        raise ValueError(f"precision is one of {', '.join(PRECISIONS)}, not {precision!r}")
     options = ort.SessionOptions()
     for dim, size in (fixed or {}).items():
         options.add_free_dimension_override_by_name(dim, int(size))
@@ -90,7 +100,13 @@ def ort_session(
     options.graph_optimization_level = levels[optimization]
     options.log_severity_level = 3
     names = choose_onnx_providers(provider)
-    providers = [(n, PROVIDER_OPTIONS[n]) if n in PROVIDER_OPTIONS else n for n in names]
+    providers: list[Any] = []
+    for name in names:
+        chosen = {
+            **PROVIDER_OPTIONS.get(name, {}),
+            **(EXACT_OPTIONS.get(name, {}) if precision == "exact" else {}),
+        }
+        providers.append((name, chosen) if chosen else name)
     session = ort.InferenceSession(str(path), options, providers=providers)
     # onnxruntime drops a provider it cannot load (a CUDA library of the wrong version, say)
     # with one log line and runs on the rest. A provider that was asked for by name and did

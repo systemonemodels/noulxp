@@ -95,6 +95,8 @@ def cmd_check(args: argparse.Namespace) -> int:
     if args.batch_rows and args.batch_rows > 1:
         options["batch_rows"] = args.batch_rows
         options["batch_cache"] = args.batch_cache
+    if args.precision != "fast":
+        options["precision"] = args.precision
     report = check(
         Path(args.package),
         device=args.device,
@@ -162,7 +164,12 @@ def cmd_serve(args: argparse.Namespace) -> int:
 
     token = args.token or os.environ.get("OPENDXP_TOKEN") or None
     models = load_models(
-        args.packages, device=args.device, threads=args.threads, check=args.check, log=_stderr
+        args.packages,
+        device=args.device,
+        threads=args.threads,
+        check=args.check,
+        log=_stderr,
+        precision=args.precision,
     )
     try:
         server = serve(
@@ -199,7 +206,12 @@ def cmd_mcp(args: argparse.Namespace) -> int:
 
     protocol = protect_stdout()
     models = load_models(
-        args.packages, device=args.device, threads=args.threads, check=args.check, log=_stderr
+        args.packages,
+        device=args.device,
+        threads=args.threads,
+        check=args.check,
+        log=_stderr,
+        precision=args.precision,
     )
     _stderr(f"opendxp mcp: {len(models)} model(s) ready on stdio")
     try:
@@ -245,6 +257,7 @@ def cmd_bench(args: argparse.Namespace) -> int:
                 if args.batch_rows and args.batch_rows > 1
                 else {}
             ),
+            **({"precision": args.precision} if args.precision != "fast" else {}),
         )
     if args.report:
         Path(args.report).write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
@@ -319,6 +332,12 @@ def main(argv: list[str] | None = None) -> int:
         "--batch-rows", type=int, help="causal-letters: decode this many rows together (serving)"
     )
     p.add_argument("--batch-cache", choices=["shared", "per-row"], default="shared")
+    p.add_argument(
+        "--precision",
+        choices=["fast", "exact"],
+        default="fast",
+        help="exact: float32 products on a GPU (no TF32, no 16-bit cuBLAS accumulation), slower",
+    )
     p.set_defaults(func=cmd_check)
 
     p = sub.add_parser("validate", help="check a package's files against the schemas and hashes")
@@ -350,6 +369,12 @@ def main(argv: list[str] | None = None) -> int:
         "--check", action="store_true", help="run each conformance file first and report it"
     )
     p.add_argument("--quiet", action="store_true", help="no access log")
+    p.add_argument(
+        "--precision",
+        choices=["fast", "exact"],
+        default="fast",
+        help="exact: float32 products on a GPU (no TF32, no 16-bit cuBLAS accumulation), slower",
+    )
     p.set_defaults(func=cmd_serve)
 
     p = sub.add_parser("mcp", help="serve packages as MCP tools on stdio (SPEC.md 12)")
@@ -358,6 +383,12 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--threads", type=int)
     p.add_argument(
         "--check", action="store_true", help="run each conformance file first and report it"
+    )
+    p.add_argument(
+        "--precision",
+        choices=["fast", "exact"],
+        default="fast",
+        help="exact: float32 products on a GPU (no TF32, no 16-bit cuBLAS accumulation), slower",
     )
     p.set_defaults(func=cmd_mcp)
 
@@ -380,6 +411,12 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--batch-cache", choices=["shared", "per-row"], default="shared")
     p.add_argument("--usd-per-hour", type=float, help="the machine's price, for the cost per 1,000")
     p.add_argument("--report", help="where to write the JSON report")
+    p.add_argument(
+        "--precision",
+        choices=["fast", "exact"],
+        default="fast",
+        help="exact: float32 products on a GPU (no TF32, no 16-bit cuBLAS accumulation), slower",
+    )
     p.set_defaults(func=cmd_bench)
 
     p = sub.add_parser("info", help="this machine's backends and devices")

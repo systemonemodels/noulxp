@@ -83,6 +83,7 @@ def load_models(
     threads: int | None = None,
     check: bool = False,
     log: Any = print,
+    precision: str = "fast",
 ) -> list[ServedModel]:
     """Open and load each package; with `check`, run its conformance file first."""
     from opendxp.runtime import load
@@ -97,7 +98,7 @@ def load_models(
             log(f"checking {package.name} against its conformance file ...")
             report = summarise(run_check(Path(path), device="cpu", threads=threads, log=log))
         log(f"loading {package.name} ({package.profile}) ...")
-        runtime = load(package, device=device, threads=threads)
+        runtime = load(package, device=device, threads=threads, precision=precision)
         models.append(ServedModel(package.name, package, runtime, conformance=report))
     ids = [m.id for m in models]
     if len(set(ids)) != len(ids):

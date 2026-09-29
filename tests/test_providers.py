@@ -43,3 +43,29 @@ def test_encoder_export_refuses_an_old_transformers(monkeypatch: pytest.MonkeyPa
         require_transformers()
     monkeypatch.setattr(importlib.metadata, "version", lambda name: "5.17.0")
     require_transformers()
+
+
+def test_exact_precision_turns_tf32_off_on_cuda(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    ort = pytest.importorskip("onnxruntime")
+    asked: list[object] = []
+
+    class Session:
+        def __init__(self, path: str, options: object, providers: list[object]) -> None:
+            asked.extend(providers)
+
+        def get_providers(self) -> list[str]:
+            return ["CUDAExecutionProvider", "CPUExecutionProvider"]
+
+    monkeypatch.setattr(ort, "InferenceSession", Session)
+    monkeypatch.setattr(
+        ort, "get_available_providers", lambda: ["CUDAExecutionProvider", "CPUExecutionProvider"]
+    )
+    ort_session(tmp_path / "model.onnx", provider="cuda", precision="exact")
+    assert ("CUDAExecutionProvider", {"use_tf32": "0"}) in asked
+    asked.clear()
+    ort_session(tmp_path / "model.onnx", provider="cuda")
+    assert "CUDAExecutionProvider" in asked  # the provider's own defaults
+    with pytest.raises(ValueError, match="precision"):
+        ort_session(tmp_path / "model.onnx", provider="cuda", precision="half")
