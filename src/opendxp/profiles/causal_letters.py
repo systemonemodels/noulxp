@@ -313,6 +313,10 @@ class CausalLettersRuntime:
         }[decode["flash_attention"]]
         kv = lc.GGML_TYPE_F16 if decode["kv_cache"] == "f16" else lc.GGML_TYPE_F32
         cp.type_k = cp.type_v = kv
+        if hasattr(cp, "op_offload"):
+            # A llama.cpp built with a GPU backend moves large matrix products of CPU weights
+            # to the GPU unless told not to: a run asked for on the CPU stays on the CPU.
+            cp.op_offload = self.gpu
         self.threads = int(threads or min(8, os.cpu_count() or 4))
         cp.n_threads = cp.n_threads_batch = self.threads
         self.ctx = lc.llama_init_from_model(self.model, cp)
