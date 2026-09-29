@@ -35,6 +35,15 @@
 - The encoder converters refuse transformers older than 5.2: 4.57 computes
   ModernBERT differently, and its packages exported without an error, agreed
   with the model they were traced from, and failed their conformance files.
+- **Precision** (SPEC.md 8.1): `precision="exact"` (`--precision exact` on
+  check, bench, serve and mcp) asks a GPU for float32 products: ONNX Runtime's
+  CUDA provider without TF32, llama.cpp's CUDA and HIP backends accumulating
+  F16 and BF16 products in float32. On an NVIDIA A40 every encoder package then
+  gives the CPU's numbers (5e-5 instead of up to 0.0067), and AnyJev from its
+  BF16 weights passes its conformance file (0.0082 instead of 0.049),
+  costing 1 to 50 % of the speed. Reports name the precision they ran at.
+- `conformance.replay` runs a package's conformance file through a runtime that
+  is already loaded, so an engine can check a package as it serves it.
 - `opendxp bench` clients keep their connection open between requests, as SDKs
   do.
 - `scripts/prefix_sharing.py` works for every layout: it keeps the last row in
