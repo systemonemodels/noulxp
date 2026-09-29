@@ -346,6 +346,7 @@ class CausalLettersRuntime:
             "n_ctx": self.n_ctx,
             "decode": self.prompt.decode,
             "precision": self.precision,
+            "batch_rows": self.batch_rows,
         }
 
     def slot_logits(self, ids: list[int], label_ids: list[int]) -> np.ndarray:
