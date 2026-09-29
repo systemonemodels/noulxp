@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+- **`opendxp bench`**: how fast a package (the reference runtime, in this
+  process) or any OpenDXP server (over the HTTP binding, at several concurrency
+  levels) answers: requests and decisions per second, latency percentiles,
+  errors by status and, with `--usd-per-hour`, the cost per 1,000 decisions.
+  Its clients back off on 429 and 503 as real ones do. Standard library only.
+- **Rows read together** (causal-letters): `batch_rows` decodes up to that many
+  rows (a request's questions and rotations) in one llama.cpp call, each its
+  own sequence from empty memory; `batch_cache` shares one cache among them or
+  gives each its own (`per-row`). It is a serving choice, not part of a package:
+  `opendxp check --batch-rows N` says whether it keeps a package compatible on
+  a given machine. `predict_many` answers several requests' rows together.
+- A request's rows are planned before any is read (typed layouts included),
+  then combined; the cache of content-free priors is never filled from a
+  planning pass.
+
 ## 0.2.0
 
 OpenDXP 0.2: a wire protocol, and models asked in rotation. Every 0.1 package

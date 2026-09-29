@@ -141,6 +141,25 @@ It listens on 127.0.0.1:8790. To listen anywhere else it needs a token
 start and reports the result in `/v1/models`; `--cors ORIGIN` lets a browser
 page call it.
 
+## Measure it
+
+```bash
+opendxp bench path/to/package --device cuda --rounds 3 --usd-per-hour 0.49
+opendxp bench http://127.0.0.1:8790 --model nokia/anyjev-qwen3-1.7b --concurrency 1,4,16,64
+```
+
+`bench` reports requests and decisions per second (a decision is one question
+answered), latency percentiles and, given the machine's price per hour, the
+cost per 1,000 decisions, for a package in this process or for any server that
+speaks the HTTP binding (`opendxp serve`, an engine, a hosted API). Publish it
+with `opendxp check` on the same machine: speed means nothing without the
+answers being the model's own.
+
+A causal-letters package can read a request's rows together:
+`--batch-rows 16` (and `--batch-cache per-row`), for `check`, `bench` and the
+Python runtime. Whether that keeps a package compatible on a given machine is
+what `opendxp check --batch-rows 16` answers.
+
 ## Give it to an AI agent (MCP)
 
 `opendxp mcp` serves packages as tools of the Model Context Protocol, on
