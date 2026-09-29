@@ -547,7 +547,7 @@ multiplies float32 matrices in TF32, and llama.cpp's CUDA backend adds up the
 products of F16 and BF16 weights in 16 bits. On an NVIDIA A40 this moved Julia
 1's probabilities by up to 0.0067 and AnyJev's by 0.049; asking for float32
 products moved them by 0.00005 and 0.008 (AnyJev from its BF16 weights),
-at 1 to 50 % of the speed. Quantized weights (Q8_0, Q4_K_M) run through
+costing 1 to 50 % of the speed. Quantized weights (Q8_0, Q4_K_M) run through
 llama.cpp's own integer kernels, which this setting does not reach.
 
 A runtime SHOULD let the engine choose between its backend's default
