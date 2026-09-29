@@ -239,6 +239,23 @@ def test_generate_then_check_passes(toy_package: Path, tokens):  # type: ignore[
     assert set(out["answers"]["q"]) == {"type", "choice", "probabilities", "confidence"}
 
 
+def test_replay_checks_a_runtime_that_is_already_loaded(toy_package: Path, tokens):  # type: ignore[no-untyped-def]
+    from opendxp.conformance import replay
+    from opendxp.package import open_package
+    from opendxp.runtime import load
+
+    generate(toy_package, ToyNative(tokens), TOY_REQUESTS, log=lambda *_: None)
+    model = load(toy_package, device="cpu")
+    report = replay(open_package(toy_package), model, device="cpu")
+    fresh = check(toy_package, device="cpu")
+    same = ("passed", "cases", "cases_passed", "max_abs_dp", "argmax_agreement", "errors")
+    assert report["passed"] and report["cases"] == 2
+    assert {k: report[k] for k in same} == {k: fresh[k] for k in same}
+    # The runtime is still open, as an engine's must be.
+    state = TOY_REQUESTS[0]["request"]["state"]
+    assert model.predict(state, TOY_REQUESTS[0]["request"]["questions"])["answers"]
+
+
 def test_predict_many_answers_as_predict_does(toy_package: Path):  # type: ignore[no-untyped-def]
     from opendxp.errors import RequestError
     from opendxp.runtime import load

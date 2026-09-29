@@ -24,7 +24,7 @@ from typing import Any
 
 from opendxp import __version__
 from opendxp.errors import OpenDXPError, RequestError
-from opendxp.package import open_package, sha256_file
+from opendxp.package import Package, open_package, sha256_file
 from opendxp.request import parse_questions
 from opendxp.spec import MIN_CASES, TIE_MARGIN, TOLERANCE
 
@@ -180,14 +180,36 @@ def check(
     **options: Any,
 ) -> dict[str, Any]:
     """Run the package's conformance file through the reference runtime."""
-    from opendxp.providers import describe_machine
     from opendxp.runtime import load
 
     package = open_package(package_dir)
     problems = package.verify(hashes=hashes)
+    runtime = load(package, device=device, threads=threads, **options)
+    try:
+        return replay(package, runtime, device=device, threads=threads, problems=problems)
+    finally:
+        runtime.close()
+        gc.collect()  # release native sessions now, not during interpreter shutdown
+
+
+def replay(
+    package: Package,
+    runtime: Any,
+    *,
+    device: str,
+    threads: int | None = None,
+    problems: list[str] | None = None,
+) -> dict[str, Any]:
+    """The package's conformance file through a runtime that is already loaded.
+
+    An engine can check a package as it serves it (its device, precision and settings)
+    without loading it twice. The runtime is left open.
+    """
+    from opendxp.providers import describe_machine
+
+    problems = list(problems or [])
     entry = package.manifest.get("conformance") or {"path": CONFORMANCE_FILE}
     cases = read_jsonl(package.resolve(entry["path"]))
-    runtime = load(package, device=device, threads=threads, **options)
     described = runtime.describe()
 
     order = list(cases)
@@ -254,8 +276,6 @@ def check(
                 record["questions"] = {k: v for k, v in details.items() if not v["ok"]}
         results.append(record)
     load_ms = float(getattr(runtime, "load_ms", 0.0))
-    runtime.close()
-    gc.collect()  # release native sessions now, not during interpreter shutdown
 
     failures = [r for r in results if not r["ok"]]
     cov = coverage(cases)
@@ -266,7 +286,7 @@ def check(
             "name": package.name,
             "profile": package.profile,
             # The folder's name, not where it sits: reports are published next to badges.
-            "path": Path(package_dir).resolve().name,
+            "path": package.root.resolve().name,
             "conformance_sha256": entry.get("sha256"),
             "weights_sha256": package.entry("weights").get("sha256"),
         },
