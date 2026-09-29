@@ -530,6 +530,31 @@ adaptive shifts), changes the probabilities; a prior estimated from earlier
 requests (AnyJev's default batch prior) makes one answer depend on other
 requests. Both are serving choices and not conformant ways to run a package.
 
+On a GPU the same holds, with other numbers. On an NVIDIA A40, reading a
+request's rows together in one call (each its own sequence, from empty memory)
+kept every decision and was 1.38 times as fast for Decider; a prompt cache that
+decodes only the tokens a row does not share with the one before served
+AnyJev's rotations twice as fast, from 32 % of the tokens, with every decision
+kept and probabilities up to 0.011 further from the file than without it
+(opendxp-paper/FINDINGS.md F13, F16). An engine that serves with such a
+setting checks the package with the same setting (`opendxp check
+--batch-rows`), and publishes that report.
+
+### 8.1 Precision on accelerators
+
+Accelerators trade precision for speed by default: ONNX Runtime's CUDA provider
+multiplies float32 matrices in TF32, and llama.cpp's CUDA backend adds up the
+products of F16 and BF16 weights in 16 bits. On an NVIDIA A40 this moved Julia
+1's probabilities by up to 0.0067 and AnyJev's by 0.049; asking for float32
+products moved them by 0.00005 and 0.008 (AnyJev from its BF16 weights),
+at 1 to 50 % of the speed. Quantized weights (Q8_0, Q4_K_M) run through
+llama.cpp's own integer kernels, which this setting does not reach.
+
+A runtime SHOULD let the engine choose between its backend's default
+(`fast`) and float32 products (`exact`), and a check report MUST name the
+precision it ran at (`runtime.precision`). Neither is required: a package is
+compatible on a backend at the precision whose report passes.
+
 ## 9. Conformance
 
 ### 9.1 conformance.jsonl
@@ -562,6 +587,13 @@ another set if it meets the minimum:
 - at least 3 languages (tagged `lang:<code>`);
 - a state of at least 2,000 characters.
 
+The native runtime SHOULD compute in float32 when it records the file, on
+unquantized weights, if the model's own code can. A file recorded by a
+quantized runtime carries that runtime's arithmetic on that CPU: Decider's,
+recorded by its own llama.cpp code on an Apple M4, is missed by 0.056 by the
+same package on an x86 CPU, while AnyJev's, recorded by its own code in
+float32, passes on both (opendxp-paper/FINDINGS.md F14).
+
 ### 9.3 Comparison
 
 An engine **passes a case** when, for every question:
@@ -586,7 +618,10 @@ engine **passes a conformance file** when it passes every case. The report
 | 2 | **OpenDXP compatible** | Level 1, and the reference runtime passes the conformance file on a CPU. |
 | 3 | OpenDXP portable | Level 2, and the reference runtime also passes on a named accelerator backend (for example Core ML, CUDA, Metal). |
 
-The badge (badge/BADGE.md) certifies level 2. Level 3 names its backends.
+The badge (badge/BADGE.md) certifies level 2. Level 3 names its backends and,
+for each, the precision (8.1) and serving settings (8) its report ran at: for
+example "CUDA, exact". A level 2 report names the CPU's architecture, since
+llama.cpp's CPU kernels differ between ARM and x86.
 
 A **derived package** (quantised or otherwise changed weights) is a different
 package: it carries a conformance file generated with the native runtime on
