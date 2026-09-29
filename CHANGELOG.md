@@ -11,7 +11,8 @@
   split, 50 held-out requests labelled with one option each brought Julia 1's
   mean confidence from 0.96 to 0.72, its accuracy (ECE 0.236 to 0.044), and the
   benchmark's distributions took its KL from the gold from 2.78 to 0.23, with
-  the same decisions.
+  the same decisions. `--hard-labels` fits to each label's leading option, to
+  how often the model is right, when the labels are distributions.
 - **`--calibration FILE`** on `run`, `serve`, `mcp` and `bench`, and
   `load(..., calibration=...)`: answer with another calibration.json than the
   package's. The package's conformance file is still replayed at its own

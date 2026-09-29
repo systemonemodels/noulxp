@@ -37,7 +37,7 @@ import json
 import math
 import time
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -131,6 +131,18 @@ def read_labelled(path: str | Path) -> list[Labelled]:
         out.append(Labelled(case.get("state", ""), case["questions"], labels, n))
     if not out:
         raise LabelError(f"{path}: no labelled requests")
+    return out
+
+
+def leading(cases: list[Labelled]) -> list[Labelled]:
+    """Each label replaced by its leading option (the first, in a tie)."""
+    out = []
+    for case in cases:
+        labels = {}
+        for qid, g in case.labels.items():
+            top = max(range(len(g)), key=g.__getitem__)
+            labels[qid] = [1.0 if i == top else 0.0 for i in range(len(g))]
+        out.append(replace(case, labels=labels))
     return out
 
 
@@ -266,12 +278,17 @@ def calibrate(
     labels: str | Path,
     *,
     test: str | Path | None = None,
+    hard: bool = False,
     device: str = "auto",
     threads: int | None = None,
     log: Any = print,
     **options: Any,
 ) -> dict[str, Any]:
-    """Fit the package's temperatures to `labels`; score before and after (and on `test`)."""
+    """Fit the package's temperatures to `labels`; score before and after (and on `test`).
+
+    With `hard`, the fit is to each label's leading option: to how often the model is
+    right, even from labels that are distributions. The scores are against the labels
+    as given."""
     from opendxp.package import open_package, sha256_file
     from opendxp.runtime import load
 
@@ -303,7 +320,7 @@ def calibrate(
     if not types:
         raise LabelError(f"{labels}: no labelled question was answered")
     log(f"fitting {', '.join(types)} ...")
-    fitted = fit(fit_readouts, fit_cases, types)
+    fitted = fit(fit_readouts, leading(fit_cases) if hard else fit_cases, types)
     temperatures = {t: fitted[t]["temperature"] for t in types if fitted[t]["temperature"]}
     own_data = own.data
     source = {
@@ -314,6 +331,7 @@ def calibrate(
             "sha256": sha256_file(Path(labels)),
             "requests": len(fit_cases),
             "decisions": {t: len(before[t]) for t in types},
+            "as": "each label's leading option" if hard else "given",
         },
         "objective": "the least mean KL(label || answer), per question type",
         "package_calibration": {

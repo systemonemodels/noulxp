@@ -296,6 +296,7 @@ def cmd_calibrate(args: argparse.Namespace) -> int:
             args.package,
             args.labels,
             test=args.test,
+            hard=args.hard_labels,
             device=args.device,
             threads=args.threads,
             log=_stderr,
@@ -458,6 +459,11 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("package")
     p.add_argument("labels", help="labelled requests, JSON lines: a request and its labels")
     p.add_argument("--test", help="labelled requests to score before and after, not fitted to")
+    p.add_argument(
+        "--hard-labels",
+        action="store_true",
+        help="fit to each label's leading option: to how often the model is right",
+    )
     p.add_argument("--out", default="calibration.json", help="where to write the fitted file")
     p.add_argument("--report", help="where to write the JSON report")
     p.add_argument("--device", default="auto")

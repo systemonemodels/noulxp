@@ -17,6 +17,7 @@ from opendxp.calibrate import (
     calibrate,
     fit,
     fitted_calibration,
+    leading,
     read_labelled,
     table,
     target,
@@ -121,6 +122,17 @@ def test_the_fit_finds_the_temperatures_the_labels_were_made_at() -> None:
     for kind, value in truth.items():
         assert fitted[kind]["temperature"] == pytest.approx(value, rel=2e-3)
         assert fitted[kind]["bound"] is None
+
+
+def test_hard_labels_fit_to_how_often_the_model_is_right() -> None:
+    readouts, cases = synthetic({"choice": 3.0, "score": 3.0, "noul": 3.0})
+    hard = leading(cases)
+    assert all(sorted(g) == [0.0] * (len(g) - 1) + [1.0] for c in hard for g in c.labels.values())
+    soft_fit, hard_fit = fit(readouts, cases, TYPES), fit(readouts, hard, TYPES)
+    for kind in TYPES:
+        # The scores' own leading option is the label's here, so hard labels ask for more
+        # confidence than the soft ones they came from.
+        assert hard_fit[kind]["temperature"] < soft_fit[kind]["temperature"]
 
 
 def test_answers_that_carry_nothing_are_fitted_flat() -> None:
