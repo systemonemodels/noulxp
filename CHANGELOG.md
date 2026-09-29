@@ -16,6 +16,14 @@
 - A request's rows are planned before any is read (typed layouts included),
   then combined; the cache of content-free priors is never filled from a
   planning pass.
+- **Requests read together** (encoder-markers): `predict_many` runs several
+  requests' questions through the graph in as few passes as fit (`batch_rows`
+  rows, `batch_tokens` padded tokens each), rows of similar length together.
+  Padding is masked, so each answer is the one `predict` gives. Static-shape
+  providers (Core ML) answer one at a time as before.
+- The ONNX exporter names the graph's dimensions (`batch`, `tokens`, `options`)
+  instead of declaring `torch.export.Dim` ranges, which torch 2.8 refused for
+  models that treat a dimension of 1 specially.
 
 ## 0.2.0
 
