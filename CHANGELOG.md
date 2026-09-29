@@ -17,13 +17,28 @@
   then combined; the cache of content-free priors is never filled from a
   planning pass.
 - **Requests read together** (encoder-markers): `predict_many` runs several
-  requests' questions through the graph in as few passes as fit (`batch_rows`
-  rows, `batch_tokens` padded tokens each), rows of similar length together.
-  Padding is masked, so each answer is the one `predict` gives. Static-shape
-  providers (Core ML) answer one at a time as before.
+  requests' questions through the graph in passes of rows of similar length
+  (within 1.25 times the shortest, plus 16 tokens; at most 32 rows). Padding is
+  masked, so each answer is the one `predict` gives. On an NVIDIA A40, Julia 1's
+  89 conformance rows take 243 ms together against 625 ms one at a time; a pass
+  filled up to a token budget instead padded short rows to a long one's length
+  and was slower than no batching. Static-shape providers (Core ML) answer one
+  at a time as before.
 - The ONNX exporter names the graph's dimensions (`batch`, `tokens`, `options`)
   instead of declaring `torch.export.Dim` ranges, which torch 2.8 refused for
   models that treat a dimension of 1 specially.
+- **No silent fallbacks.** An onnxruntime provider asked for by name that does
+  not load (a CUDA 13 build on CUDA 12, say) is an error instead of a run on the
+  CPU, and reports list the providers that loaded. A causal-letters run on the
+  CPU stays there: a GPU build of llama.cpp no longer offloads its matrix
+  products (`op_offload`).
+- The encoder converters refuse transformers older than 5.2: 4.57 computes
+  ModernBERT differently, and its packages exported without an error, agreed
+  with the model they were traced from, and failed their conformance files.
+- `opendxp bench` clients keep their connection open between requests, as SDKs
+  do.
+- `scripts/prefix_sharing.py` works for every layout: it keeps the last row in
+  the cache and decodes only the tokens a row adds.
 
 ## 0.2.0
 
