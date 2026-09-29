@@ -361,28 +361,32 @@ def table(report: dict[str, Any]) -> str:
             f"{title}: {part['requests']:,} requests"
             + (f", {len(part['refused'])} refused" if part["refused"] else "")
         )
-        lines.append(
-            f"  {'':8}{'decisions':>10}  {'temperature':<17}{'confidence':<17}{'accuracy':<17}"
-            f"{'KL':<17}{'Brier':<17}{'ECE'}"
-        )
+        head = ["", "decisions", "temperature", "confidence", "accuracy", "KL", "Brier", "ECE"]
+        grid = [head]
         rows = [(t, before["by_type"][t], after["by_type"][t]) for t in before["by_type"]]
         rows.append(("all", before["all"], after["all"]))
         for name, x, y in rows:
             info = report["fitted"].get(name)
+            temp = ""
             if info:
                 was = "by count" if info["package_buckets"] else f"{info['package_temperature']:g}"
-                temp = f"{was} -> {info['temperature']:g}" if info["temperature"] else f"{was}"
-            else:
-                temp = ""
-            cells = [f"{x[k]:.4g} -> {y[k]:.4g}" for k in ("kl", "brier", "ece")]
-            sure = f"{x['confidence']:.4g} -> {y['confidence']:.4g}"
-            right = f"{x['accuracy']:.4g}" + (
-                f" -> {y['accuracy']:.4g}" if y["accuracy"] != x["accuracy"] else ""
+                temp = f"{was} -> {info['temperature']:g}" if info["temperature"] else was
+            right = f"{x['accuracy']:.4g}"
+            if y["accuracy"] != x["accuracy"]:
+                right += f" -> {y['accuracy']:.4g}"
+            grid.append(
+                [name, f"{x['decisions']:,}", temp]
+                + [f"{x[k]:.4g} -> {y[k]:.4g}" for k in ("confidence",)]
+                + [right]
+                + [f"{x[k]:.4g} -> {y[k]:.4g}" for k in ("kl", "brier", "ece")]
             )
-            lines.append(
-                f"  {name:8}{x['decisions']:>10,}  {temp:<17}{sure:<17}{right:<17}"
-                + "".join(c.ljust(17) for c in cells).rstrip()
-            )
+        widths = [max(len(row[i]) for row in grid) for i in range(len(head))]
+        for row in grid:
+            cells = [
+                cell.rjust(w) if i == 1 else cell.ljust(w)
+                for i, (cell, w) in enumerate(zip(row, widths, strict=True))
+            ]
+            lines.append("  " + "  ".join(cells).rstrip())
 
     lines.append(f"{report['package']['name']} ({report['runtime'].get('backend', '')})")
     block("fitted on", report["labelled"])
