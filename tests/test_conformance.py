@@ -239,6 +239,20 @@ def test_generate_then_check_passes(toy_package: Path, tokens):  # type: ignore[
     assert set(out["answers"]["q"]) == {"type", "choice", "probabilities", "confidence"}
 
 
+def test_predict_many_answers_as_predict_does(toy_package: Path):  # type: ignore[no-untyped-def]
+    from opendxp.errors import RequestError
+    from opendxp.runtime import load
+
+    model = load(toy_package, device="cpu")
+    model.batch_rows = 2  # several passes, rows from different requests sharing them
+    items = [(r["request"]["state"], r["request"]["questions"]) for r in TOY_REQUESTS]
+    items.insert(1, ("x", {"bad": {"type": "choice", "instructions": "w", "criteria": ["a"] * 30}}))
+    got = model.predict_many(items)
+    assert isinstance(got[1], RequestError)
+    for (state, questions), mine in zip(items[:1] + items[2:], got[:1] + got[2:], strict=True):
+        assert mine == model.predict(state, questions)
+
+
 def test_check_fails_on_a_perturbed_expectation(toy_package: Path, tokens):  # type: ignore[no-untyped-def]
     generate(toy_package, ToyNative(tokens), TOY_REQUESTS, log=lambda *_: None)
     path = toy_package / "conformance.jsonl"

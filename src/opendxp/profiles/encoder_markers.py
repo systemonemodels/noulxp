@@ -233,6 +233,9 @@ class EncoderMarkersRuntime:
     """The reference runtime: tokenizers + onnxruntime, nothing specific to any model."""
 
     profile = "encoder-markers"
+    # predict_many: the most rows, and padded tokens, one pass of the graph takes.
+    batch_rows = 64
+    batch_tokens = 64 * 512
 
     def __init__(
         self,
@@ -372,6 +375,73 @@ class EncoderMarkersRuntime:
         dists, usage = self.distributions(state, questions)
         answers = {q.id: answer(q, p, self.rules, decimals) for q, p in dists}
         return {"answers": answers, "usage": usage}
+
+    def rows_logits(self, encoded: list[Encoded]) -> list[np.ndarray]:
+        """option_logits for rows from any number of requests, run in as few passes as fit.
+
+        Rows are sorted by length so each pass pads little, and a pass holds at most
+        `batch_rows` rows and `batch_tokens` padded tokens. Padding is masked, so a row's
+        logits do not depend on the rows it shares a pass with.
+        """
+        out: list[np.ndarray] = [np.zeros(0, dtype=np.float32)] * len(encoded)
+        chunk: list[int] = []
+
+        def flush() -> None:
+            logits = self.run(pack([encoded[i] for i in chunk], self.pad_id))
+            for j, i in enumerate(chunk):
+                out[i] = logits[j, : len(encoded[i].markers)]
+
+        for i in sorted(range(len(encoded)), key=lambda i: len(encoded[i].ids)):
+            longest = len(encoded[i].ids)  # sorted, so this row sets the pass's length
+            if chunk and (
+                len(chunk) >= self.batch_rows or (len(chunk) + 1) * longest > self.batch_tokens
+            ):
+                flush()
+                chunk = []
+            chunk.append(i)
+        if chunk:
+            flush()
+        return out
+
+    def predict_many(
+        self, items: list[tuple[Any, Any]], decimals: int | None = 4
+    ) -> list[dict[str, Any] | Exception]:
+        """Several requests' questions read together: on a GPU, one pass instead of one each.
+
+        A request that cannot be asked gets its error; the others are unaffected. A
+        static-shape provider runs row by row anyway, so it answers them one at a time.
+        """
+        if self.static:
+            results: list[dict[str, Any] | Exception] = []
+            for state, questions in items:
+                try:
+                    results.append(self.predict(state, questions, decimals))
+                except (RequestError, ValueError, KeyError, TypeError) as exc:
+                    results.append(exc)
+            return results
+        results = [RequestError("not answered") for _ in items]
+        plans: list[tuple[int, list[Question], int, int]] = []
+        rows: list[Encoded] = []
+        for i, (state, questions) in enumerate(items):
+            try:
+                parsed = parse_questions(questions)
+                encoded = self.encode(state, parsed)
+            except (RequestError, ValueError, KeyError, TypeError) as exc:
+                results[i] = exc
+                continue
+            plans.append((i, parsed, len(rows), len(encoded)))
+            rows.extend(encoded)
+        logits = self.rows_logits(rows) if rows else []
+        for i, parsed, start, count in plans:
+            answers = {}
+            for q, e, row in zip(
+                parsed, rows[start : start + count], logits[start : start + count], strict=True
+            ):
+                t = self.calibration.temperature(q.type, len(e.markers))
+                answers[q.id] = answer(q, softmax(row.tolist(), t), self.rules, decimals)
+            tokens = sum(len(e.ids) for e in rows[start : start + count])
+            results[i] = {"answers": answers, "usage": {"input_tokens": tokens, "output_tokens": 0}}
+        return results
 
     def close(self) -> None:
         self.session = None
