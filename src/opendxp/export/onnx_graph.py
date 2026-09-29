@@ -46,13 +46,15 @@ def export_graph(
 
     # PyTorch's fused TransformerEncoderLayer kernel has no ONNX translation.
     torch.backends.mha.set_fastpath_enabled(False)
-    batch, tokens, options = (torch.export.Dim(n) for n in ("batch", "tokens", "options"))
+    # Names rather than torch.export.Dim objects: the exporter makes each dimension dynamic
+    # and keeps its name in the graph, with no declared range to check. A named Dim's range
+    # includes 1, which torch 2.8 refuses for a model that treats a dimension of 1 specially.
     dynamic = {
-        "input_ids": {0: batch, 1: tokens},
-        "attention_mask": {0: batch, 1: tokens},
-        "marker_positions": {0: batch, 1: options},
-        "marker_mask": {0: batch, 1: options},
-        "question_type": {0: batch},
+        "input_ids": {0: "batch", 1: "tokens"},
+        "attention_mask": {0: "batch", 1: "tokens"},
+        "marker_positions": {0: "batch", 1: "options"},
+        "marker_mask": {0: "batch", 1: "options"},
+        "question_type": {0: "batch"},
     }
     args = tuple(torch.as_tensor(sample[name]) for name in INPUTS)
     with torch.no_grad():
