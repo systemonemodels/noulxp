@@ -233,9 +233,15 @@ class EncoderMarkersRuntime:
     """The reference runtime: tokenizers + onnxruntime, nothing specific to any model."""
 
     profile = "encoder-markers"
-    # predict_many: the most rows, and padded tokens, one pass of the graph takes.
-    batch_rows = 64
-    batch_tokens = 64 * 512
+    # predict_many: the most rows, and padded tokens, one pass of the graph takes, and how
+    # much longer than the shortest row in a pass the longest may be. Attention costs the
+    # square of the padded length, so a short row padded to a long one's length costs more
+    # than a pass of its own (Julia 1 on an A40: a pass of 1 to 16 short rows takes ~6 ms,
+    # 32 rows 14 ms, 64 rows 42 ms).
+    batch_rows = 32
+    batch_tokens = 32 * 512
+    batch_spread = 1.25
+    batch_slack = 16
 
     def __init__(
         self,
@@ -380,9 +386,11 @@ class EncoderMarkersRuntime:
     def rows_logits(self, encoded: list[Encoded]) -> list[np.ndarray]:
         """option_logits for rows from any number of requests, run in as few passes as fit.
 
-        Rows are sorted by length so each pass pads little, and a pass holds at most
-        `batch_rows` rows and `batch_tokens` padded tokens. Padding is masked, so a row's
-        logits do not depend on the rows it shares a pass with.
+        Rows are sorted by length, and a pass holds at most `batch_rows` rows and
+        `batch_tokens` padded tokens, of lengths within `batch_spread` times the shortest
+        (plus `batch_slack` tokens): rows of similar length run together, and a long row
+        never makes short ones pay for its length. Padding is masked, so a row's logits do
+        not depend on the rows it shares a pass with.
         """
         out: list[np.ndarray] = [np.zeros(0, dtype=np.float32)] * len(encoded)
         chunk: list[int] = []
@@ -395,7 +403,9 @@ class EncoderMarkersRuntime:
         for i in sorted(range(len(encoded)), key=lambda i: len(encoded[i].ids)):
             longest = len(encoded[i].ids)  # sorted, so this row sets the pass's length
             if chunk and (
-                len(chunk) >= self.batch_rows or (len(chunk) + 1) * longest > self.batch_tokens
+                len(chunk) >= self.batch_rows
+                or (len(chunk) + 1) * longest > self.batch_tokens
+                or longest > len(encoded[chunk[0]].ids) * self.batch_spread + self.batch_slack
             ):
                 flush()
                 chunk = []
