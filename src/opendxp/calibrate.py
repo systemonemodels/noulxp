@@ -133,8 +133,9 @@ def kl(label: list[float], p: list[float]) -> float:
 
 
 def scores(pairs: Pairs, bins: int = 10) -> dict[str, Any]:
-    """(label, answer) distributions over the same options -> the benchmark's four numbers."""
-    correct = total_kl = brier = 0.0
+    """(label, answer) distributions over the same options -> the benchmark's four numbers, and
+    the mean confidence (the leading option's probability) to set the accuracy against."""
+    correct = total_kl = brier = sure = 0.0
     buckets: dict[int, list[tuple[float, float]]] = defaultdict(list)
     for label, p in pairs:
         top = max(range(len(label)), key=label.__getitem__)
@@ -142,6 +143,7 @@ def scores(pairs: Pairs, bins: int = 10) -> dict[str, Any]:
         tied = [i for i, x in enumerate(p) if abs(x - best) < 1e-12]
         hit = 1.0 / len(tied) if top in tied else 0.0
         correct += hit
+        sure += best
         total_kl += kl(label, p)
         brier += sum((x - g) ** 2 for g, x in zip(label, p, strict=True))
         buckets[min(bins - 1, int(best * bins))].append((best, hit))
@@ -154,6 +156,7 @@ def scores(pairs: Pairs, bins: int = 10) -> dict[str, Any]:
     )
     return {
         "decisions": n,
+        "confidence": round(sure / n, 4),
         "accuracy": round(correct / n, 4),
         "kl": round(total_kl / n, 4),
         "brier": round(brier / n, 4),
@@ -359,8 +362,8 @@ def table(report: dict[str, Any]) -> str:
             + (f", {len(part['refused'])} refused" if part["refused"] else "")
         )
         lines.append(
-            f"  {'':8}{'decisions':>10}  {'temperature':<17}{'accuracy':<17}{'KL':<17}"
-            f"{'Brier':<17}{'ECE'}"
+            f"  {'':8}{'decisions':>10}  {'temperature':<17}{'confidence':<17}{'accuracy':<17}"
+            f"{'KL':<17}{'Brier':<17}{'ECE'}"
         )
         rows = [(t, before["by_type"][t], after["by_type"][t]) for t in before["by_type"]]
         rows.append(("all", before["all"], after["all"]))
@@ -371,9 +374,13 @@ def table(report: dict[str, Any]) -> str:
                 temp = f"{was} -> {info['temperature']:g}" if info["temperature"] else f"{was}"
             else:
                 temp = ""
-            cells = [f"{x[k]:.4g} -> {y[k]:.4g}" for k in ("accuracy", "kl", "brier", "ece")]
+            cells = [f"{x[k]:.4g} -> {y[k]:.4g}" for k in ("kl", "brier", "ece")]
+            sure = f"{x['confidence']:.4g} -> {y['confidence']:.4g}"
+            right = f"{x['accuracy']:.4g}" + (
+                f" -> {y['accuracy']:.4g}" if y["accuracy"] != x["accuracy"] else ""
+            )
             lines.append(
-                f"  {name:8}{x['decisions']:>10,}  {temp:<17}"
+                f"  {name:8}{x['decisions']:>10,}  {temp:<17}{sure:<17}{right:<17}"
                 + "".join(c.ljust(17) for c in cells).rstrip()
             )
 
