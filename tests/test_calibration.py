@@ -1,9 +1,9 @@
 import pytest
 
-from opendxp.calibration import Calibration
-from opendxp.errors import PackageError
-from opendxp.export import decider as decider_export
-from opendxp.export import laya as laya_export
+from noulxp.calibration import Calibration
+from noulxp.errors import PackageError
+from noulxp.export import decider as decider_export
+from noulxp.export import laya as laya_export
 
 TYPED_DECISIONS = {
     "temperature": [1.0148, 1.0374, 1.0575],

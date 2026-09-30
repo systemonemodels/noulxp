@@ -1,6 +1,6 @@
 # Paper outline
 
-Working title: **OpenDXP: a portable runtime standard for calibrated
+Working title: **NoulXP: a portable runtime standard for calibrated
 single-pass decision models**
 
 This file tracks the paper: its argument, its sections, and which experiments
@@ -17,7 +17,7 @@ never estimated.
    means installing, trusting and wrapping each one. Formats such as ONNX and
    GGUF carry the weights but not the rest: how the input is built from the
    request, where the answer is read, how it is calibrated.
-3. OpenDXP puts the rest in the package as data (a template or a prompt, and
+3. NoulXP puts the rest in the package as data (a template or a prompt, and
    temperatures), so one engine runs every model with no code written for it
    and nothing from the package executed.
 4. Faithfulness is testable: the package carries a conformance file of what

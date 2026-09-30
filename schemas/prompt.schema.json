@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:odxp:0.2:prompt",
+  "$id": "urn:noulxp:0.2:prompt",
   "title": "causal-letters prompt (prompt.json)",
   "description": "How the reference runtime builds the prompt rows for one question and where it reads the answer: one layout for every question type (0.1), or typed layouts with an optional chat template and rotations (0.2). SPEC.md section 6.",
   "type": "object",
   "required": ["standard", "profile", "context", "options"],
   "properties": {
-    "standard": {"enum": ["odxp/0.1", "odxp/0.2"]},
+    "standard": {"enum": ["noulxp/0.1", "noulxp/0.2", "odxp/0.1", "odxp/0.2"]},
     "profile": {"const": "causal-letters"},
     "context": {
       "type": "object",
@@ -146,7 +146,7 @@
     {
       "description": "0.2: typed layouts",
       "required": ["types"],
-      "properties": {"standard": {"const": "odxp/0.2"}},
+      "properties": {"standard": {"enum": ["noulxp/0.2", "odxp/0.2"]}},
       "not": {"anyOf": [{"required": ["question"]}, {"required": ["labels"]}, {"required": ["layouts"]}, {"required": ["score"]}]}
     }
   ],

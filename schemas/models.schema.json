@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:odxp:0.2:models",
+  "$id": "urn:noulxp:0.2:models",
   "title": "Discovery answer",
   "description": "What GET /v1/models returns: the models a server holds. SPEC.md section 11.3.",
   "type": "object",
@@ -15,7 +15,7 @@
         "properties": {
           "id": {"type": "string", "minLength": 1},
           "object": {"const": "model"},
-          "standard": {"type": "string", "pattern": "^odxp/[0-9]+\\.[0-9]+$"},
+          "standard": {"type": "string", "pattern": "^(noulxp|odxp)/[0-9]+\\.[0-9]+$"},
           "profile": {"enum": ["encoder-markers", "causal-letters"]},
           "question_types": {
             "type": "array",

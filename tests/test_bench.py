@@ -1,4 +1,4 @@
-"""`opendxp bench`: the toy package in this process, and through a real server."""
+"""`noulxp bench`: the toy package in this process, and through a real server."""
 
 from __future__ import annotations
 
@@ -8,10 +8,10 @@ from pathlib import Path
 
 import pytest
 
-from opendxp import cli
-from opendxp.bench import bench_http, bench_package, percentile, summarize, table
-from opendxp.server import serve
-from opendxp.serving import load_models
+from noulxp import cli
+from noulxp.bench import bench_http, bench_package, percentile, summarize, table
+from noulxp.server import serve
+from noulxp.serving import load_models
 from test_conformance import TOY_REQUESTS, toy_package  # noqa: F401 - a fixture
 
 REQUESTS = [row["request"] for row in TOY_REQUESTS]
@@ -104,7 +104,7 @@ def test_the_command_writes_a_report(
 def test_the_client_turns_nagle_off(toy_package: Path) -> None:  # noqa: F811
     import socket
 
-    from opendxp.bench import _Connection
+    from noulxp.bench import _Connection
 
     loaded = load_models([toy_package], device="cpu", log=lambda *_: None)
     server = serve(loaded, port=0, quiet=True)

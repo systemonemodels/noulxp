@@ -1,12 +1,17 @@
 # Validation
 
-Laya, Julia 1 and Decider converted to OpenDXP 0.1 packages, and AnyJev
-(Nokia's L0, on Qwen3-1.7B) to an OpenDXP 0.2 package, and checked against
+Laya, Julia 1 and Decider converted to NoulXP 0.1 packages, and AnyJev
+(Nokia's L0, on Qwen3-1.7B) to a NoulXP 0.2 package, and checked against
 their own code. Every number here comes from a report in
-[validation/](validation/): for each package its `odxp.json`, its template or
+[validation/](validation/): for each package its manifest, its template or
 prompt, `calibration.json`, `conformance.jsonl` and the check reports. The
 weights are not copied there; they are the published files, and each manifest
 names them by SHA-256.
+
+These packages were made before the rename, as OpenDXP: their manifests are
+`odxp.json`, declaring `odxp/0.1` or `odxp/0.2`, and the reports name the
+`opendxp` versions that wrote them. They are kept as they were made; NoulXP
+runtimes read them as they are (SPEC.md 4.5).
 
 Machine: Apple M4 (10 cores), macOS 27, Python 3.12.13, onnxruntime 1.30.0,
 llama-cpp-python 0.3.35 (llama.cpp with Metal), 4 threads for llama.cpp. For
@@ -14,22 +19,22 @@ AnyJev: anyjev 0.2.0, torch 2.14.0, transformers 5.17.0, 8 threads.
 
 ## Method
 
-1. **Convert** with `opendxp export`. The encoder-markers graphs point at the
+1. **Convert** with `noulxp export`. The encoder-markers graphs point at the
    checkpoint's `model.safetensors` as ONNX external data (SPEC.md 4.3), so a
    package adds a 3 to 5 MB graph and copies no weights. Decider's package is
    its official Q8_0 GGUF, unchanged. AnyJev's is Qwen3-1.7B's published BF16
    weights as an F16 GGUF (llama.cpp's `convert_hf_to_gguf.py`), since AnyJev
    runs the model's own weights.
-2. **Record what the model's own code answers.** `opendxp conformance generate`
-   runs the native runtime on the CPU over the OpenDXP 0.1 request set: 52
+2. **Record what the model's own code answers.** `noulxp conformance generate`
+   runs the native runtime on the CPU over the NoulXP 0.1 request set: 52
    requests, 91 questions, 11 languages (Nepali and Thai among them), 2 to 20
    options, a 6,687-character state, and two requests a model may refuse. Laya
    runs through the `laya` package and AnyJev through the `anyjev` package (its
    Decider at L0, on transformers in float32, every rotation read); Julia 1 and
-   Decider through `opendxp.native`, rebuilds of their authors' inference code
+   Decider through `noulxp.native`, rebuilds of their authors' inference code
    (Decider decoding each row in full, as its own GGUF engine does).
-3. **Replay it through the reference runtime** with `opendxp check`: on the CPU
-   for level 2 (OpenDXP compatible), and on an accelerator backend for level 3.
+3. **Replay it through the reference runtime** with `noulxp check`: on the CPU
+   for level 2 (NoulXP compatible), and on an accelerator backend for level 3.
 
 The native runtimes report probabilities to 4 decimals, so a difference of
 5e-5 is the rounding floor: every CPU check below agrees with the model's own
@@ -64,7 +69,7 @@ package with Qwen's own Q8_0 GGUF (below).
 
 `julia-1-official` is the graph Supersonic Labs publish
 (`SupersonicLabs/Julia-1-ONNX/model.onnx`), not an export of ours: its inputs
-and output renamed to the OpenDXP signature, its 69 initializers pointed at the
+and output renamed to the NoulXP signature, its 69 initializers pointed at the
 checkpoint's safetensors and 96 transposes rebuilt from it (3.0 MB, opset 18).
 A model's own ONNX export can become a package without exporting it again.
 
@@ -201,11 +206,11 @@ with its tokenizer and `decider_config.json`), and for AnyJev Qwen/Qwen3-1.7B
 anyjev 0.2.0 from PyPI.
 
 ```bash
-opendxp export laya ckpt/laya/typed-decisions packages/laya-typed-decisions --name convai-innovations/laya:typed-decisions
-opendxp conformance generate packages/laya-typed-decisions --native ckpt/laya/typed-decisions --runtime laya
-opendxp check packages/laya-typed-decisions --report validation/laya-typed-decisions/check-cpu.json
-opendxp export julia ckpt/julia-1 packages/julia-1-official --official-onnx ckpt/julia-1-onnx/model.onnx
-opendxp check packages/julia-1 --device coreml --report validation/julia-1/check-coreml.json
+noulxp export laya ckpt/laya/typed-decisions packages/laya-typed-decisions --name convai-innovations/laya:typed-decisions
+noulxp conformance generate packages/laya-typed-decisions --native ckpt/laya/typed-decisions --runtime laya
+noulxp check packages/laya-typed-decisions --report validation/laya-typed-decisions/check-cpu.json
+noulxp export julia ckpt/julia-1 packages/julia-1-official --official-onnx ckpt/julia-1-onnx/model.onnx
+noulxp check packages/julia-1 --device coreml --report validation/julia-1/check-coreml.json
 
 python scripts/decider_token_ids.py packages/decider-2b ckpt/decider-2b
 python scripts/julia_parity.py packages/julia-1 ckpt/julia-1-onnx/parity-cases.json
@@ -213,9 +218,9 @@ python scripts/llama_numerics.py packages/decider-2b
 python scripts/prefix_sharing.py packages/decider-2b --device cpu --report validation/decider-2b/prefix-sharing-cpu.json
 
 python llama.cpp/convert_hf_to_gguf.py ckpt/qwen3-1.7b --outtype f16 --outfile ckpt/Qwen3-1.7B-F16.gguf
-opendxp export anyjev ckpt/qwen3-1.7b packages/anyjev-qwen3-1.7b --gguf ckpt/Qwen3-1.7B-F16.gguf --base Qwen/Qwen3-1.7B
-opendxp conformance generate packages/anyjev-qwen3-1.7b --native ckpt/qwen3-1.7b --runtime anyjev --threads 8
-opendxp check packages/anyjev-qwen3-1.7b --threads 8 --report validation/anyjev-qwen3-1.7b/check-cpu.json
+noulxp export anyjev ckpt/qwen3-1.7b packages/anyjev-qwen3-1.7b --gguf ckpt/Qwen3-1.7B-F16.gguf --base Qwen/Qwen3-1.7B
+noulxp conformance generate packages/anyjev-qwen3-1.7b --native ckpt/qwen3-1.7b --runtime anyjev --threads 8
+noulxp check packages/anyjev-qwen3-1.7b --threads 8 --report validation/anyjev-qwen3-1.7b/check-cpu.json
 python scripts/anyjev_token_ids.py packages/anyjev-qwen3-1.7b ckpt/qwen3-1.7b
 ```
 

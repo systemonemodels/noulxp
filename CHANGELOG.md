@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.4.0 (2026-09-30)
+
+- **OpenDXP is now NoulXP.** Another open-source project already used the name
+  OpenDXP, so the standard, the package, the command and the badge take a name
+  of their own: `pip install noulxp`, `noulxp serve`, `noulxp check`, the
+  manifest `noulxp.json`, the versions `noulxp/0.1` and `noulxp/0.2`, and the
+  badge "NoulXP compatible". The format, the answers and the protocol are those
+  of 0.3.1.
+- Packages made before the rename run as they did: a runtime reads `odxp.json`
+  when a package has no `noulxp.json`, and `odxp/0.1` and `odxp/0.2` as the same
+  versions under the old name. Converters write only the new names.
+- The HTTP binding's header is `NoulXP-Version` (was `OpenDXP-Version`) and the
+  MCP server calls itself `noulxp`. `NOULXP_TOKEN` replaces `OPENDXP_TOKEN`,
+  which is still read.
+- `opendxp` on PyPI is now a redirect: `pip install opendxp` installs `noulxp`,
+  `import opendxp` (and every `opendxp.*` module) is `noulxp`, and the `opendxp`
+  command runs `noulxp`, each with a note to switch.
+
 ## 0.3.1 (2026-09-30)
 
 - **Fixed: `opendxp serve` answered no faster than ~40 ms a request on Linux.**

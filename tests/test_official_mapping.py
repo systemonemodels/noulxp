@@ -1,4 +1,4 @@
-"""Mapping an existing ONNX export onto the OpenDXP signature and the checkpoint's weights."""
+"""Mapping an existing ONNX export onto the NoulXP signature and the checkpoint's weights."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from opendxp.export.julia import FOLDED_FROM, map_official_graph
+from noulxp.export.julia import FOLDED_FROM, map_official_graph
 
 
 def _official_style_graph(path: Path, w: np.ndarray, b: np.ndarray) -> None:

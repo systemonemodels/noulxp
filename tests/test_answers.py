@@ -2,8 +2,8 @@ import math
 
 import pytest
 
-from opendxp.answers import answer, argmax, confidence, softmax
-from opendxp.request import parse_question
+from noulxp.answers import answer, argmax, confidence, softmax
+from noulxp.request import parse_question
 
 
 def test_softmax_with_temperature():
@@ -47,7 +47,7 @@ def test_answer_formats():
 
 
 def test_auto_uses_cuda_or_the_cpu_and_names_the_rest(monkeypatch: pytest.MonkeyPatch) -> None:
-    from opendxp import providers
+    from noulxp import providers
 
     def offer(*names: str) -> None:
         monkeypatch.setattr(providers, "available_onnx_providers", lambda: list(names))

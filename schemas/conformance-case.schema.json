@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:odxp:0.2:conformance-case",
+  "$id": "urn:noulxp:0.2:conformance-case",
   "title": "One line of conformance.jsonl",
   "description": "A request and what the model's own code answered: the probability of every option of every question, or that it refused the request. SPEC.md section 9.",
   "type": "object",

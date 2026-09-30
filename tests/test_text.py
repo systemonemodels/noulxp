@@ -1,4 +1,4 @@
-from opendxp.text import annotate_indices, as_text, fill, placeholders, state_text
+from noulxp.text import annotate_indices, as_text, fill, placeholders, state_text
 
 
 def test_fill_is_single_pass_and_keeps_unknown_placeholders():

@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import pytest
 
-from opendxp.conformance import DEFAULT_REQUESTS, read_jsonl
-from opendxp.export import decider as decider_export
-from opendxp.export import julia as julia_export
-from opendxp.export import laya as laya_export
-from opendxp.schemas import NAMES, errors, schema
+from noulxp.conformance import DEFAULT_REQUESTS, read_jsonl
+from noulxp.export import decider as decider_export
+from noulxp.export import julia as julia_export
+from noulxp.export import laya as laya_export
+from noulxp.schemas import NAMES, errors, schema
 
 SPECIAL = {"cls": "[CLS]", "sep": "[SEP]", "marker": "[MASK]", "pad": "[PAD]"}
 SHA = "0" * 64
@@ -49,7 +49,7 @@ def test_request_set_lines_are_requests():
 
 def _manifest(**overrides):  # type: ignore[no-untyped-def]
     base = {
-        "standard": "odxp/0.1",
+        "standard": "noulxp/0.1",
         "name": "x/y",
         "profile": "encoder-markers",
         "weights": {
@@ -69,8 +69,8 @@ def _manifest(**overrides):  # type: ignore[no-untyped-def]
 
 def test_manifest_rules():
     assert errors(_manifest(), "manifest") == []
-    assert errors(_manifest(standard="odxp/0.2"), "manifest") == []
-    assert errors(_manifest(standard="odxp/0.3"), "manifest")
+    assert errors(_manifest(standard="noulxp/0.2"), "manifest") == []
+    assert errors(_manifest(standard="noulxp/0.3"), "manifest")
     assert errors(_manifest(profile="causal-letters"), "manifest")  # needs prompt and gguf
     assert errors(_manifest(tokenizer={"path": "../tokenizer.json", "sha256": SHA}), "manifest")
     assert errors(_manifest(tokenizer={"path": "/etc/passwd", "sha256": SHA}), "manifest")

@@ -1,6 +1,6 @@
 """Compare Decider's own prompt token ids with a causal-letters package's.
 
-Runs Decider's own prompt builder (opendxp.native.decider, with the model's
+Runs Decider's own prompt builder (noulxp.native.decider, with the model's
 Hugging Face tokenizer through transformers.AutoTokenizer) and the package's
 prompt.json builder (with `tokenizers` alone) on every row of the request set,
 without running the model, and counts rows whose ids differ.
@@ -14,12 +14,12 @@ import argparse
 import json
 from pathlib import Path
 
-from opendxp.conformance import DEFAULT_REQUESTS, read_jsonl
-from opendxp.native.decider import load_prompter
-from opendxp.package import open_package
-from opendxp.profiles.causal_letters import Builder, Prompt
-from opendxp.request import parse_questions
-from opendxp.tokens import Tokens
+from noulxp.conformance import DEFAULT_REQUESTS, read_jsonl
+from noulxp.native.decider import load_prompter
+from noulxp.package import open_package
+from noulxp.profiles.causal_letters import Builder, Prompt
+from noulxp.request import parse_questions
+from noulxp.tokens import Tokens
 
 
 def main() -> None:

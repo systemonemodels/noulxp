@@ -1,7 +1,7 @@
 import pytest
 
-from opendxp.errors import RequestError
-from opendxp.request import parse_question, parse_request
+from noulxp.errors import RequestError
+from noulxp.request import parse_question, parse_request
 
 
 def test_choice_dict_and_list():

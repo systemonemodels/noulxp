@@ -41,6 +41,6 @@ def tokenizer_file(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 @pytest.fixture(scope="session")
 def tokens(tokenizer_file: Path):  # type: ignore[no-untyped-def]
-    from opendxp.tokens import Tokens
+    from noulxp.tokens import Tokens
 
     return Tokens(tokenizer_file)

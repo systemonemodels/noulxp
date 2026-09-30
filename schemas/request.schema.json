@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:odxp:0.2:request",
+  "$id": "urn:noulxp:0.2:request",
   "title": "System One request",
   "description": "A state and typed questions, answered in one pass. SPEC.md section 3.",
   "type": "object",

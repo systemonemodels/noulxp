@@ -15,7 +15,7 @@ from typing import ClassVar
 
 import pytest
 
-from opendxp.conformance import (
+from noulxp.conformance import (
     DEFAULT_REQUESTS,
     check,
     compare_question,
@@ -24,9 +24,9 @@ from opendxp.conformance import (
     generate,
     read_jsonl,
 )
-from opendxp.export import laya as laya_export
-from opendxp.export.common import entry, manifest, place, write_json, write_manifest
-from opendxp.spec import TOLERANCE
+from noulxp.export import laya as laya_export
+from noulxp.export.common import entry, manifest, place, write_json, write_manifest
+from noulxp.spec import TOLERANCE
 from oracles import HFStyle, laya_encode
 
 
@@ -225,11 +225,11 @@ def test_generate_then_check_passes(toy_package: Path, tokens):  # type: ignore[
     assert report["argmax_agreement"] == {"agree": 4, "total": 4}
     assert not report["compatible"]  # two cases are below the coverage minimum
 
-    from opendxp.schemas import errors
+    from noulxp.schemas import errors
 
     assert errors(report, "check-report") == []
 
-    from opendxp.runtime import load
+    from noulxp.runtime import load
 
     model = load(toy_package, device="cpu")
     out = model.predict(
@@ -240,9 +240,9 @@ def test_generate_then_check_passes(toy_package: Path, tokens):  # type: ignore[
 
 
 def test_replay_checks_a_runtime_that_is_already_loaded(toy_package: Path, tokens):  # type: ignore[no-untyped-def]
-    from opendxp.conformance import replay
-    from opendxp.package import open_package
-    from opendxp.runtime import load
+    from noulxp.conformance import replay
+    from noulxp.package import open_package
+    from noulxp.runtime import load
 
     generate(toy_package, ToyNative(tokens), TOY_REQUESTS, log=lambda *_: None)
     model = load(toy_package, device="cpu")
@@ -257,8 +257,8 @@ def test_replay_checks_a_runtime_that_is_already_loaded(toy_package: Path, token
 
 
 def test_predict_many_answers_as_predict_does(toy_package: Path):  # type: ignore[no-untyped-def]
-    from opendxp.errors import RequestError
-    from opendxp.runtime import load
+    from noulxp.errors import RequestError
+    from noulxp.runtime import load
 
     model = load(toy_package, device="cpu")
     model.batch_rows = 2  # several passes, rows from different requests sharing them
@@ -309,3 +309,38 @@ def test_expected_refusals_must_be_refused(toy_package: Path, tokens):  # type: 
     generate(toy_package, Refusing(tokens), requests, log=lambda *_: None)
     report = check(toy_package, device="cpu")
     assert report["passed"] and report["errors"] == {"expected": 1, "matched": 1}
+
+
+def as_made_before_the_rename(package: Path) -> None:
+    """Rewrite a package as OpenDXP (to 0.3.1) wrote it: odxp.json, declaring odxp/X.Y."""
+    from noulxp.package import sha256_file
+
+    manifest = json.loads((package / "noulxp.json").read_text(encoding="utf-8"))
+    for key in ("template", "calibration"):
+        path = package / manifest[key]["path"]
+        data = json.loads(path.read_text(encoding="utf-8"))
+        data["standard"] = data["standard"].replace("noulxp/", "odxp/")
+        path.write_text(json.dumps(data), encoding="utf-8")
+        manifest[key]["sha256"] = sha256_file(path)
+    manifest["standard"] = manifest["standard"].replace("noulxp/", "odxp/")
+    (package / "noulxp.json").unlink()
+    (package / "odxp.json").write_text(json.dumps(manifest), encoding="utf-8")
+
+
+def test_a_package_made_before_the_rename_still_runs(toy_package: Path, tokens):  # type: ignore[no-untyped-def]
+    from noulxp.package import open_package
+    from noulxp.validate import validate_package
+
+    as_made_before_the_rename(toy_package)
+    package = open_package(toy_package)
+    assert package.manifest_name == "odxp.json"
+    assert package.manifest["standard"] == "odxp/0.1"
+
+    generate(toy_package, ToyNative(tokens), TOY_REQUESTS, log=lambda *_: None)
+    # The conformance summary goes into the manifest the package has, not a second one.
+    assert not (toy_package / "noulxp.json").exists()
+    assert "conformance" in json.loads((toy_package / "odxp.json").read_text(encoding="utf-8"))
+    report = check(toy_package, device="cpu")
+    assert report["passed"], report["failures"]
+    assert report["standard"] == "odxp/0.1"
+    assert not any("declares" in p or "odxp.json" in p for p in validate_package(toy_package))

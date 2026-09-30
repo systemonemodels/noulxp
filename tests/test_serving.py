@@ -13,10 +13,10 @@ from typing import Any
 
 import pytest
 
-from opendxp import schemas, spec
-from opendxp.errors import RequestError
-from opendxp.server import DecisionServer, Handler, is_loopback, serve
-from opendxp.serving import Batcher, ServedModel, ServingError, load_models
+from noulxp import schemas, spec
+from noulxp.errors import RequestError
+from noulxp.server import DecisionServer, Handler, is_loopback, serve
+from noulxp.serving import Batcher, ServedModel, ServingError, load_models
 from test_conformance import TOY_REQUESTS, toy_package  # noqa: F401 - a fixture
 
 REQUEST = TOY_REQUESTS[0]["request"]
@@ -74,7 +74,7 @@ def test_discovery_and_an_answer(models: list[ServedModel]) -> None:
         assert status == 200 and schemas.errors(listed, "models") == []
         assert [m["id"] for m in listed["data"]] == ["test/toy"]
         assert listed["data"][0]["profile"] == "encoder-markers"
-        assert headers["OpenDXP-Version"] == spec.PROTOCOL_VERSION
+        assert headers["NoulXP-Version"] == spec.PROTOCOL_VERSION
 
         status, headers, answer = call(server, spec.HTTP_DECIDE_PATH, REQUEST)
         assert status == 200, answer

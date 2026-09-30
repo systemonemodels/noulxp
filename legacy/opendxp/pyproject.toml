@@ -1,0 +1,40 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+# The old name, kept so nothing that depends on it breaks: it installs noulxp,
+# and `opendxp` (the module, every submodule, the command) is noulxp.
+[project]
+name = "opendxp"
+version = "0.4.0"
+description = "OpenDXP is now NoulXP: this package installs noulxp and forwards to it"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.11"
+authors = [{ name = "System One Models", email = "ceo@systemonemodels.tech" }]
+keywords = ["opendxp", "noulxp"]
+classifiers = [
+  "Development Status :: 7 - Inactive",
+  "Programming Language :: Python :: 3",
+]
+dependencies = ["noulxp>=0.4.0"]
+
+# The extras opendxp had, each now noulxp's.
+[project.optional-dependencies]
+onnx = ["noulxp[onnx]>=0.4.0"]
+gguf = ["noulxp[gguf]>=0.4.0"]
+export = ["noulxp[export]>=0.4.0"]
+laya = ["noulxp[laya]>=0.4.0"]
+anyjev = ["noulxp[anyjev]>=0.4.0"]
+
+[project.scripts]
+opendxp = "opendxp_cli:main"
+
+[project.urls]
+Homepage = "https://github.com/systemonemodels/noulxp"
+
+# The command lives outside the package, so running it does not import opendxp
+# (and warn about the import) before it says what to run instead.
+[tool.hatch.build.targets.wheel]
+only-include = ["src/opendxp", "src/opendxp_cli.py"]
+sources = ["src"]

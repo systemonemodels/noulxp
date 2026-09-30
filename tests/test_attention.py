@@ -5,8 +5,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from opendxp.errors import BackendUnavailable
-from opendxp.providers import check_fused_attention
+from noulxp.errors import BackendUnavailable
+from noulxp.providers import check_fused_attention
 from test_conformance import toy_package  # noqa: F401 - a fixture
 
 onnx = pytest.importorskip("onnx")
@@ -41,7 +41,7 @@ def reference(q: np.ndarray, k: np.ndarray, v: np.ndarray, mask: np.ndarray) -> 
 )
 @pytest.mark.parametrize("mask_shape", [[1, 1, 1, 5], [1, 2, 1, 5], [1, 1, 3, 5]])
 def test_a_broadcast_mask_is_expanded_to_the_same_attention(mask_shape: list[int]) -> None:
-    from opendxp.export.onnx_graph import expand_attention_masks
+    from noulxp.export.onnx_graph import expand_attention_masks
 
     rng = np.random.default_rng(0)
     q = rng.normal(size=(1, 2, 3, 4)).astype(np.float32)
@@ -70,12 +70,12 @@ def test_the_runtime_reads_the_opset_from_the_manifest(toy_package, monkeypatch)
     """A package whose weights say opset 23 is refused on CUDA before any session exists."""
     import json
 
-    from opendxp.profiles import encoder_markers
-    from opendxp.runtime import load
+    from noulxp.profiles import encoder_markers
+    from noulxp.runtime import load
 
-    manifest = json.loads((toy_package / "odxp.json").read_text())
+    manifest = json.loads((toy_package / "noulxp.json").read_text())
     manifest["weights"]["opset"] = 23
-    (toy_package / "odxp.json").write_text(json.dumps(manifest))
+    (toy_package / "noulxp.json").write_text(json.dumps(manifest))
     cuda = ["CUDAExecutionProvider", "CPUExecutionProvider"]
     monkeypatch.setattr(encoder_markers, "choose_onnx_providers", lambda _provider: cuda)
     monkeypatch.setattr(ort, "__version__", "1.23.2")

@@ -21,9 +21,9 @@ from typing import Any
 
 import numpy as np
 
-from opendxp.conformance import compare_question, expected_from_answer, read_jsonl
-from opendxp.package import open_package
-from opendxp.profiles.causal_letters import CausalLettersRuntime
+from noulxp.conformance import compare_question, expected_from_answer, read_jsonl
+from noulxp.package import open_package
+from noulxp.profiles.causal_letters import CausalLettersRuntime
 
 
 class SharedPrefix(CausalLettersRuntime):

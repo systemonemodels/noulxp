@@ -7,11 +7,11 @@ import random
 import pytest
 
 from generators import request
-from opendxp.errors import PackageError, RequestError
-from opendxp.export import julia as julia_export
-from opendxp.export import laya as laya_export
-from opendxp.profiles.encoder_markers import Template, encode_question, pack
-from opendxp.request import parse_questions
+from noulxp.errors import PackageError, RequestError
+from noulxp.export import julia as julia_export
+from noulxp.export import laya as laya_export
+from noulxp.profiles.encoder_markers import Template, encode_question, pack
+from noulxp.request import parse_questions
 from oracles import HFStyle, julia_rows, julia_sequence, laya_encode
 
 LAYA_SPECIAL = {"cls": "[CLS]", "sep": "[SEP]", "marker": "[MASK]", "pad": "[PAD]"}

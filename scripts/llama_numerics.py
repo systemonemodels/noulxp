@@ -15,13 +15,13 @@ import json
 
 import numpy as np
 
-from opendxp.answers import softmax
-from opendxp.calibration import Calibration
-from opendxp.conformance import read_jsonl
-from opendxp.package import open_package
-from opendxp.profiles.causal_letters import Builder, Prompt, _silence
-from opendxp.request import parse_questions
-from opendxp.tokens import Tokens
+from noulxp.answers import softmax
+from noulxp.calibration import Calibration
+from noulxp.conformance import read_jsonl
+from noulxp.package import open_package
+from noulxp.profiles.causal_letters import Builder, Prompt, _silence
+from noulxp.request import parse_questions
+from noulxp.tokens import Tokens
 
 
 def main() -> None:

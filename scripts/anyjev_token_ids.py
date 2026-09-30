@@ -21,14 +21,14 @@ from anyjev.readout import build_prompt, label_ids_for_perm, render_chat, resolv
 from anyjev.state import render_state
 from transformers import AutoTokenizer
 
-from opendxp.conformance import DEFAULT_REQUESTS, read_jsonl
-from opendxp.native import anyjev as native
-from opendxp.native.anyjev import settings
-from opendxp.package import open_package
-from opendxp.profiles.causal_letters import Prompt
-from opendxp.profiles.typed import TypedBuilder
-from opendxp.request import parse_questions
-from opendxp.tokens import Tokens
+from noulxp.conformance import DEFAULT_REQUESTS, read_jsonl
+from noulxp.native import anyjev as native
+from noulxp.native.anyjev import settings
+from noulxp.package import open_package
+from noulxp.profiles.causal_letters import Prompt
+from noulxp.profiles.typed import TypedBuilder
+from noulxp.request import parse_questions
+from noulxp.tokens import Tokens
 
 
 def perms(q: Any, canonical: bool) -> list[list[int]]:

@@ -3,15 +3,15 @@ requires = ["hatchling>=1.24"]
 build-backend = "hatchling.build"
 
 [project]
-name = "opendxp"
-version = "0.3.1"
-description = "OpenDXP, the Open Decision Exchange Protocol: a portable standard for calibrated single-pass decision models (reference implementation)"
+name = "noulxp"
+version = "0.4.0"
+description = "NoulXP (formerly OpenDXP): a portable, open standard and protocol for calibrated single-pass decision models (reference implementation)"
 readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE", "NOTICE"]
 requires-python = ">=3.11"
 authors = [{ name = "System One Models", email = "ceo@systemonemodels.tech" }]
-keywords = ["opendxp", "system-one", "decision-models", "onnx", "gguf", "calibration", "conformance"]
+keywords = ["noulxp", "opendxp", "system-one", "decision-models", "onnx", "gguf", "calibration", "conformance"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Developers",
@@ -46,23 +46,23 @@ anyjev = ["anyjev[hf]==0.2.0"]
 dev = ["pytest>=8", "ruff>=0.6", "onnx>=1.17", "onnxruntime>=1.20", "anyjev==0.2.0"]
 
 [project.scripts]
-opendxp = "opendxp.cli:main"
+noulxp = "noulxp.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/systemonemodels/opendxp"
-Documentation = "https://systemonemodels.tech/docs/opendxp"
-Specification = "https://github.com/systemonemodels/opendxp/blob/main/SPEC.md"
-Validation = "https://github.com/systemonemodels/opendxp/blob/main/VALIDATION.md"
-Issues = "https://github.com/systemonemodels/opendxp/issues"
+Homepage = "https://github.com/systemonemodels/noulxp"
+Documentation = "https://systemonemodels.tech/docs/noulxp"
+Specification = "https://github.com/systemonemodels/noulxp/blob/main/SPEC.md"
+Validation = "https://github.com/systemonemodels/noulxp/blob/main/VALIDATION.md"
+Issues = "https://github.com/systemonemodels/noulxp/issues"
 
 [tool.hatch.build.targets.sdist]
 exclude = [".github"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/opendxp"]
+packages = ["src/noulxp"]
 
 [tool.hatch.build.targets.wheel.force-include]
-"schemas" = "opendxp/schemas"
+"schemas" = "noulxp/schemas"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -83,5 +83,5 @@ ignore = ["RUF001", "RUF002", "RUF003"]
 # The oracles are the models' own code, kept verbatim.
 "tests/oracles.py" = ["UP031", "RUF005", "B905", "E501"]
 # The native runtimes follow the models' own code line by line.
-"src/opendxp/native/*.py" = ["RUF005"]
+"src/noulxp/native/*.py" = ["RUF005"]
 "tests/*.py" = ["E501"]

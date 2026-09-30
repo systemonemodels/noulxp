@@ -7,10 +7,10 @@ import random
 import pytest
 
 from generators import request
-from opendxp.errors import PackageError, RequestError
-from opendxp.export import decider as decider_export
-from opendxp.profiles.causal_letters import Builder, Prompt, unique_tokens
-from opendxp.request import parse_questions
+from noulxp.errors import PackageError, RequestError
+from noulxp.export import decider as decider_export
+from noulxp.profiles.causal_letters import Builder, Prompt, unique_tokens
+from noulxp.request import parse_questions
 from oracles import DeciderPrompter, HFStyle
 
 MAX_OPTIONS = 36  # A..Z and AA..AJ are single tokens of the test tokenizer
@@ -115,7 +115,7 @@ def test_prompt_validation(tokens):
 def test_llama_cpp_logging_is_silenced_once_for_the_process() -> None:
     # llama.cpp keeps one callback for the whole process: a callback freed with
     # one runtime would be called by the next, so it is installed once and kept.
-    from opendxp.profiles.causal_letters import _silence
+    from noulxp.profiles.causal_letters import _silence
 
     class FakeLlama:
         def __init__(self) -> None:

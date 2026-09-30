@@ -1,4 +1,4 @@
-"""Run a Julia 1 OpenDXP package on the authors' own parity cases.
+"""Run a Julia 1 NoulXP package on the authors' own parity cases.
 
 SupersonicLabs/Julia-1-ONNX ships parity-cases.json: 100 validation rows
 with the logits the original PyTorch model gave (max_length 1024,
@@ -17,9 +17,9 @@ from pathlib import Path
 
 import numpy as np
 
-from opendxp.package import open_package
-from opendxp.profiles.encoder_markers import EncoderMarkersRuntime, pack
-from opendxp.request import parse_question
+from noulxp.package import open_package
+from noulxp.profiles.encoder_markers import EncoderMarkersRuntime, pack
+from noulxp.request import parse_question
 
 
 def question(row: dict) -> dict:

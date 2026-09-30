@@ -1,11 +1,11 @@
-# OpenDXP 0.2
+# NoulXP 0.2
 
-**The Open Decision Exchange Protocol: a portable standard for calibrated single-pass decision models.**
+**A portable, open standard for calibrated single-pass decision models.**
 
 Status: version 0.2. It adds the HTTP and MCP bindings (sections 11 and 12)
 and, to the causal-letters profile, typed layouts, chat templates and
 rotations (6.7, 6.8); every 0.1 package is a 0.2 package. Features new in 0.2
-are marked (0.2). Reference implementation: the `opendxp` package in this
+are marked (0.2). Reference implementation: the `noulxp` package in this
 repository. Licence: Apache-2.0.
 
 The key words MUST, MUST NOT, SHOULD, SHOULD NOT and MAY are used as in RFC 2119.
@@ -16,21 +16,21 @@ this document is normative for their meaning.
 
 A **System One model** answers typed questions about a state in one forward
 pass per question (or per question row), with a probability for every option.
-Every such model published so far ships its own inference code. OpenDXP defines
-a **package** that any OpenDXP **engine** can run without code written for that
+Every such model published so far ships its own inference code. NoulXP defines
+a **package** that any NoulXP **engine** can run without code written for that
 model, and a **conformance** method that proves the engine runs it faithfully.
 
-OpenDXP has two **profiles**, one per architecture family:
+NoulXP has two **profiles**, one per architecture family:
 
 | Profile | Architecture | Weights | Declarative input | Answer read from |
 | --- | --- | --- | --- | --- |
 | `encoder-markers` | bidirectional encoder, one marker token per option | ONNX | `template.json` | one logit per marker |
 | `causal-letters` | decoder language model, lettered options | GGUF | `prompt.json` | the letter tokens' logits at the answer slot |
 
-A model that fits neither profile can still be listed; it is not OpenDXP
+A model that fits neither profile can still be listed; it is not NoulXP
 compatible and runs only with its own code.
 
-OpenDXP is a protocol in four parts, so that any application can ask any
+NoulXP is a protocol in four parts, so that any application can ask any
 decision model the same way, on any machine:
 
 1. **Requests and answers** (section 3): one format for a state and typed
@@ -46,7 +46,7 @@ Terms used below:
 
 - **Native runtime**: the model's own code (for example the `laya` package).
 - **Reference runtime**: the runtime in this repository, which reads only the package.
-- **Engine**: any program that runs OpenDXP packages. The reference runtime is one.
+- **Engine**: any program that runs NoulXP packages. The reference runtime is one.
 - **Row**: one forward pass. An encoder-markers question is one row; a
   causal-letters question is one row, one row per level (section 6.4) or one
   row per rotation of its options (section 6.8).
@@ -170,10 +170,10 @@ response also carries `"usage": {"input_tokens": n, "output_tokens": 0}`.
 
 ### 4.1 Layout
 
-A package is a directory with `odxp.json` at its root:
+A package is a directory with `noulxp.json` at its root (or `odxp.json`, 4.5):
 
 ```
-odxp.json          manifest (section 4.2)
+noulxp.json          manifest (section 4.2)
 model.onnx          encoder-markers graph ...
 model.safetensors   ... and its external data, or
 model.gguf          causal-letters weights
@@ -184,13 +184,13 @@ calibration.json    temperatures (section 7)
 conformance.jsonl   the model's own answers (section 9)
 ```
 
-File names other than `odxp.json` are free; the manifest names them.
+File names other than `noulxp.json` are free; the manifest names them.
 
-### 4.2 odxp.json
+### 4.2 noulxp.json
 
 | Field | Required | Meaning |
 | --- | --- | --- |
-| `standard` | yes | `"odxp/0.1"` or `"odxp/0.2"` (4.5) |
+| `standard` | yes | `"noulxp/0.1"` or `"noulxp/0.2"` (4.5) |
 | `name` | yes | the model's name, e.g. `convai-innovations/laya:typed-decisions` |
 | `profile` | yes | `encoder-markers` or `causal-letters` |
 | `weights` | yes | file entry with `format` (`onnx` or `gguf`); ONNX adds `opset` and `data` (its external data files) |
@@ -237,19 +237,25 @@ A registry manifest (systemone.yaml, manifest spec 0.2) points to the package:
 
 ```yaml
 runtime:
-  standard: odxp/0.1
-  package: odxp/        # the directory holding odxp.json
+  standard: noulxp/0.1
+  package: noulxp/        # the directory holding noulxp.json
 ```
 
 ### 4.5 Versions
 
 An engine MUST refuse a package whose `standard` it does not implement. Before
 1.0, every minor version may change the format: an engine implementing 0.2
-runs `odxp/0.1` and `odxp/0.2` packages, and never a newer one. A package
+runs `noulxp/0.1` and `noulxp/0.2` packages, and never a newer one. A package
 declares the oldest version that has every feature it uses, so that the
-engines already deployed keep running it: a converter writes `odxp/0.1`
+engines already deployed keep running it: a converter writes `noulxp/0.1`
 unless the package uses a feature marked (0.2). The files of a package declare
 the same version as its manifest.
+
+Until version 0.3.1 of the reference implementation this standard was called
+OpenDXP. Packages made then name their manifest `odxp.json` and declare
+`odxp/0.1` or `odxp/0.2`: the same versions under the old name. An engine MUST
+read `odxp.json` when a package has no `noulxp.json`, and MUST run `odxp/X.Y`
+exactly as `noulxp/X.Y`; tools MUST NOT write the old names.
 
 ## 5. Profile `encoder-markers`
 
@@ -499,7 +505,7 @@ an engine MAY cache its distribution.
 ## 7. Calibration
 
 ```json
-{"standard": "odxp/0.1",
+{"standard": "noulxp/0.1",
  "temperature": {"choice": 1.64, "score": 1.25, "noul": 1.98},
  "by_option_count": [{"type": "choice", "min": 3, "max": 5, "temperature": 1.76},
                      {"type": "choice", "min": 11, "max": null, "temperature": 0.5}],
@@ -532,17 +538,17 @@ can). A runtime answering at another calibration:
 - keeps content-free priors (6.8) apart by temperature, since a prior is read
   at its question's temperature.
 
-The file is not part of the package, whose files are hashed in odxp.json; a
+The file is not part of the package, whose files are hashed in noulxp.json; a
 publisher who changes a package's own calibration publishes a new package,
 with a conformance file its model's code records at the new temperatures.
 
-Fitting (informative): `opendxp calibrate PACKAGE LABELS.jsonl` reads
+Fitting (informative): `noulxp calibrate PACKAGE LABELS.jsonl` reads
 labelled requests, each a request and a label per question (an option's key,
 a distribution over the options, or an answer object, such as another
 model's), and writes a calibration.json with, for each question type, the
 temperature of least mean KL(label || answer), searched over [0.01, 1000];
 `source` records the labels' sha256 and the package's own temperatures. On the
-typed-decisions test split (opendxp-paper, E9), Julia 1 answers with a mean
+typed-decisions test split (noulxp-paper, E9), Julia 1 answers with a mean
 confidence of 0.96 and is right 72 % of the time; temperatures fitted to 50
 held-out requests labelled with one option per question bring its confidence
 to 0.72 (expected calibration error 0.236 to 0.044), and fitted to the
@@ -572,8 +578,8 @@ kept every decision and was 1.38 times as fast for Decider; a prompt cache that
 decodes only the tokens a row does not share with the one before served
 AnyJev's rotations twice as fast, from 32 % of the tokens, with every decision
 kept and probabilities up to 0.011 further from the file than without it
-(opendxp-paper/FINDINGS.md F13, F16). An engine that serves with such a
-setting checks the package with the same setting (`opendxp check
+(noulxp-paper/FINDINGS.md F13, F16). An engine that serves with such a
+setting checks the package with the same setting (`noulxp check
 --batch-rows`), and publishes that report.
 
 ### 8.1 Precision on accelerators
@@ -613,7 +619,7 @@ refused the request.
 A conformance file MUST be generated by running the **native runtime** (the
 model's own code, on a CPU) on the requests, and the manifest's
 `conformance.generated_by` MUST say which code, which version and which
-libraries. The request set is `src/opendxp/data/requests-0.1.jsonl` (52
+libraries. The request set is `src/noulxp/data/requests-0.1.jsonl` (52
 requests, 91 questions, 11 languages; unchanged in 0.2); a package MAY use
 another set if it meets the minimum:
 
@@ -628,7 +634,7 @@ unquantized weights, if the model's own code can. A file recorded by a
 quantized runtime carries that runtime's arithmetic on that CPU: Decider's,
 recorded by its own llama.cpp code on an Apple M4, is missed by 0.056 by the
 same package on an x86 CPU, while AnyJev's, recorded by its own code in
-float32, passes on both (opendxp-paper/FINDINGS.md F14).
+float32, passes on both (noulxp-paper/FINDINGS.md F14).
 
 ### 9.3 Comparison
 
@@ -651,8 +657,8 @@ engine **passes a conformance file** when it passes every case. The report
 | --- | --- | --- |
 | 0 | Listed | A manifest; the model runs only with its own code. |
 | 1 | Conformant package | The package validates (schemas, hashes, parsers) and its conformance file meets 9.2. |
-| 2 | **OpenDXP compatible** | Level 1, and the reference runtime passes the conformance file on a CPU. |
-| 3 | OpenDXP portable | Level 2, and the reference runtime also passes on a named accelerator backend (for example Core ML, CUDA, Metal). |
+| 2 | **NoulXP compatible** | Level 1, and the reference runtime passes the conformance file on a CPU. |
+| 3 | NoulXP portable | Level 2, and the reference runtime also passes on a named accelerator backend (for example Core ML, CUDA, Metal). |
 
 The badge (badge/BADGE.md) certifies level 2. Level 3 names its backends and,
 for each, the precision (8.1) and serving settings (8) its report ran at: for
@@ -666,7 +672,7 @@ the original weights, and reaches level 2 only if it passes it.
 ## 11. HTTP binding
 
 A server holds one or more models and answers requests over HTTP. The
-reference server is `opendxp serve`.
+reference server is `noulxp serve`.
 
 ### 11.1 Endpoints
 
@@ -678,8 +684,8 @@ reference server is `opendxp serve`.
 
 `/v1/systemone` is the path and body of the System One request that TypeSafe's
 Jev API and the System One Engine answer, so a client written for either works
-against any OpenDXP server. A server MUST state the protocol version in an
-`OpenDXP-Version` header on every answer (`0.2` for this version). Bodies are
+against any NoulXP server. A server MUST state the protocol version in an
+`NoulXP-Version` header on every answer (`0.2` for this version). Bodies are
 JSON in UTF-8.
 
 ### 11.2 Answering
@@ -737,7 +743,7 @@ origin (CORS); a server SHOULD NOT allow every origin by default.
 ## 12. MCP binding
 
 An AI agent reaches a decision model as a tool of the Model Context Protocol
-(MCP). The reference server is `opendxp mcp`, on the stdio transport.
+(MCP). The reference server is `noulxp mcp`, on the stdio transport.
 
 ### 12.1 Tools
 
@@ -821,7 +827,7 @@ protocol messages to stdout.
 
 | File | Schema |
 | --- | --- |
-| odxp.json | `schemas/odxp.schema.json` |
+| noulxp.json | `schemas/noulxp.schema.json` |
 | template.json | `schemas/template.schema.json` |
 | prompt.json | `schemas/prompt.schema.json` |
 | calibration.json | `schemas/calibration.schema.json` |

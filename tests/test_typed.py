@@ -3,7 +3,7 @@
 anyjev 0.2.0 is numpy-only at its core, so these tests run its real
 build_prompt, render_chat, render_state, rotation math and Decider, on a fake
 model whose logits are a hash of the row it reads. The package side is what
-`opendxp export anyjev` writes, run by the reference runtime's typed path.
+`noulxp export anyjev` writes, run by the reference runtime's typed path.
 """
 
 from __future__ import annotations
@@ -34,16 +34,16 @@ from anyjev.state import render_state as anyjev_state  # noqa: E402
 
 from conftest import WORDS  # noqa: E402
 from generators import UNKNOWN, request  # noqa: E402
-from opendxp import rotations, schemas  # noqa: E402
-from opendxp.calibration import Calibration  # noqa: E402
-from opendxp.errors import PackageError, RequestError  # noqa: E402
-from opendxp.export import anyjev as exporter  # noqa: E402
-from opendxp.native import anyjev as native  # noqa: E402
-from opendxp.profiles.causal_letters import CausalLettersRuntime, Prompt  # noqa: E402
-from opendxp.profiles.typed import TypedBuilder, trie_tokens  # noqa: E402
-from opendxp.request import parse_questions  # noqa: E402
-from opendxp.text import render_state  # noqa: E402
-from opendxp.tokens import Tokens  # noqa: E402
+from noulxp import rotations, schemas  # noqa: E402
+from noulxp.calibration import Calibration  # noqa: E402
+from noulxp.errors import PackageError, RequestError  # noqa: E402
+from noulxp.export import anyjev as exporter  # noqa: E402
+from noulxp.native import anyjev as native  # noqa: E402
+from noulxp.profiles.causal_letters import CausalLettersRuntime, Prompt  # noqa: E402
+from noulxp.profiles.typed import TypedBuilder, trie_tokens  # noqa: E402
+from noulxp.request import parse_questions  # noqa: E402
+from noulxp.text import render_state  # noqa: E402
+from noulxp.tokens import Tokens  # noqa: E402
 
 SPECIALS = ["[UNK]", "<|im_start|>", "<|im_end|>", "<think>", "</think>"]
 PROMPT_WORDS = (
@@ -378,7 +378,7 @@ def test_typed_prompts_are_checked(tokens: Tokens, hf: ChatTokenizer) -> None:
     good = package_prompt(tokens, hf)
     choice = lambda d: d["types"]["choice"]  # noqa: E731
     cases = {
-        "odxp/0.2": lambda d: d.update(standard="odxp/0.1"),
+        "noulxp/0.2": lambda d: d.update(standard="noulxp/0.1"),
         "has no question": lambda d: d.update(
             question={"head": "", "option": "{label}{text}", "tail": ""}
         ),
@@ -420,14 +420,14 @@ def test_typed_prompts_are_checked(tokens: Tokens, hf: ChatTokenizer) -> None:
 
 
 def test_0_1_prompts_cannot_use_0_2_state_options() -> None:
-    from opendxp.export import decider as decider_export
+    from noulxp.export import decider as decider_export
 
     data = decider_export.prompt({}, list("ABCDEFGHIJ"))
     Prompt(data)
     data["state"] = {"json": "indent-2"}
-    with pytest.raises(PackageError, match=r"need odxp/0\.2"):
+    with pytest.raises(PackageError, match=r"need noulxp/0\.2"):
         Prompt(data)
-    data["standard"] = "odxp/0.2"
+    data["standard"] = "noulxp/0.2"
     assert Prompt(data).typed is None
 
 
@@ -454,7 +454,7 @@ def test_input_tokens_count_shared_starts_once() -> None:
 
 def test_the_request_set_maps_to_anyjev() -> None:
     """Every question of the 0.1 request set either maps to AnyJev or is refused for a reason."""
-    path = Path(__file__).resolve().parents[1] / "src" / "opendxp" / "data" / "requests-0.1.jsonl"
+    path = Path(__file__).resolve().parents[1] / "src" / "noulxp" / "data" / "requests-0.1.jsonl"
     refused = []
     for line in path.read_text().splitlines():
         case = json.loads(line)

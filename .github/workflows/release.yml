@@ -29,7 +29,7 @@ jobs:
         run: |
           tag="${GITHUB_REF_NAME#v}"
           version=$(grep -m1 '^version' pyproject.toml | cut -d'"' -f2)
-          code=$(grep -m1 '^__version__' src/opendxp/__init__.py | cut -d'"' -f2)
+          code=$(grep -m1 '^__version__' src/noulxp/__init__.py | cut -d'"' -f2)
           if [ "$tag" != "$version" ] || [ "$tag" != "$code" ]; then
             echo "::error::tag v$tag, pyproject $version and __version__ $code must all match"
             exit 1
@@ -44,19 +44,39 @@ jobs:
           done
 
       - run: uv build
-      - run: uvx twine check --strict dist/*
 
-      - name: The wheel installs and runs in a clean environment
+      # opendxp, the old name, is a package that installs noulxp. It is built
+      # when its version is this tag's (0.4.0, the rename) and not after, since
+      # PyPI refuses a version twice.
+      - name: The opendxp redirect, at the rename
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          legacy=$(grep -m1 '^version' legacy/opendxp/pyproject.toml | cut -d'"' -f2)
+          if [ "$tag" = "$legacy" ]; then uv build legacy/opendxp -o dist-legacy/; fi
+
+      - run: uvx twine check --strict dist/* $(ls dist-legacy/* 2>/dev/null)
+
+      - name: The wheels install and run in a clean environment
         run: |
           python -m venv /tmp/check
-          /tmp/check/bin/pip install dist/*.whl
-          /tmp/check/bin/opendxp --version
-          /tmp/check/bin/opendxp info
+          /tmp/check/bin/pip install dist/noulxp-*.whl
+          /tmp/check/bin/noulxp --version
+          /tmp/check/bin/noulxp info
+          if ls dist-legacy/opendxp-*.whl >/dev/null 2>&1; then
+            /tmp/check/bin/pip install dist-legacy/opendxp-*.whl
+            /tmp/check/bin/opendxp --version
+            /tmp/check/bin/python -W ignore -c "import opendxp.package, noulxp.package; assert opendxp.package is noulxp.package"
+          fi
 
       - uses: actions/upload-artifact@v4
         with:
           name: dist
           path: dist/
+      - uses: actions/upload-artifact@v4
+        if: hashFiles('dist-legacy/*') != ''
+        with:
+          name: dist-legacy
+          path: dist-legacy/
 
   publish:
     needs: build
@@ -65,7 +85,7 @@ jobs:
     # required reviewer: nothing reaches PyPI without a click.
     environment:
       name: pypi
-      url: https://pypi.org/project/opendxp/
+      url: https://pypi.org/project/noulxp/
     permissions:
       # Trusted Publishing, and the signature on each file.
       id-token: write
@@ -75,3 +95,18 @@ jobs:
           name: dist
           path: dist/
       - uses: pypa/gh-action-pypi-publish@release/v1
+
+      # The opendxp redirect, when this release has one. PyPI must trust this
+      # repository for the opendxp project too (RELEASING.md); when it does
+      # not, noulxp is out all the same, and this step says why.
+      - uses: actions/download-artifact@v4
+        id: legacy
+        continue-on-error: true
+        with:
+          name: dist-legacy
+          path: dist-legacy/
+      - if: steps.legacy.outcome == 'success'
+        continue-on-error: true
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist-legacy/

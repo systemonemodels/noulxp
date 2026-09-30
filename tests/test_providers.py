@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from opendxp.errors import BackendUnavailable
-from opendxp.providers import ort_session
+from noulxp.errors import BackendUnavailable
+from noulxp.providers import ort_session
 
 
 def test_a_named_provider_that_does_not_load_is_an_error(
@@ -36,7 +36,7 @@ def test_a_named_provider_that_does_not_load_is_an_error(
 def test_encoder_export_refuses_an_old_transformers(monkeypatch: pytest.MonkeyPatch) -> None:
     import importlib.metadata
 
-    from opendxp.export.common import require_transformers
+    from noulxp.export.common import require_transformers
 
     monkeypatch.setattr(importlib.metadata, "version", lambda name: "4.57.6")
     with pytest.raises(BackendUnavailable, match=r"transformers 4\.57\.6 .* 5\.2 or later"):

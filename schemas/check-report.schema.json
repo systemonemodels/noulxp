@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:odxp:0.2:check-report",
+  "$id": "urn:noulxp:0.2:check-report",
   "title": "Conformance check report",
-  "description": "What `opendxp check` writes: the package, the runtime and machine, the agreement with the conformance file, latency and the verdict. SPEC.md section 10.",
+  "description": "What `noulxp check` writes: the package, the runtime and machine, the agreement with the conformance file, latency and the verdict. SPEC.md section 10.",
   "type": "object",
   "required": ["standard", "package", "runtime", "tolerance", "cases", "cases_passed", "questions", "max_abs_dp", "argmax_agreement", "errors", "coverage", "passed", "compatible"],
   "properties": {
-    "standard": {"enum": ["odxp/0.1", "odxp/0.2"]},
+    "standard": {"enum": ["noulxp/0.1", "noulxp/0.2", "odxp/0.1", "odxp/0.2"]},
     "package": {"type": "object", "required": ["name", "profile"]},
     "runtime": {"type": "object", "required": ["implementation", "profile", "backend"]},
     "machine": {"type": "object"},

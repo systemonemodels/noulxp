@@ -1,4 +1,4 @@
-"""opendxp calibrate and answering at another calibration.json (SPEC.md 7.1)."""
+"""noulxp calibrate and answering at another calibration.json (SPEC.md 7.1)."""
 
 from __future__ import annotations
 
@@ -9,9 +9,9 @@ from typing import Any
 import numpy as np
 import pytest
 
-from opendxp import schemas
-from opendxp.answers import softmax
-from opendxp.calibrate import (
+from noulxp import schemas
+from noulxp.answers import softmax
+from noulxp.calibrate import (
     LabelError,
     Labelled,
     calibrate,
@@ -22,9 +22,9 @@ from opendxp.calibrate import (
     table,
     target,
 )
-from opendxp.calibration import Calibration, Readout
-from opendxp.errors import PackageError, RequestError
-from opendxp.request import Question, parse_questions
+from noulxp.calibration import Calibration, Readout
+from noulxp.errors import PackageError, RequestError
+from noulxp.request import Question, parse_questions
 from test_conformance import TOY_REQUESTS, ToyNative, toy_package  # noqa: F401 - a fixture
 
 # The toy scores a choice's options and a noul's apart, a score's levels alike.
@@ -142,7 +142,7 @@ def test_answers_that_carry_nothing_are_fitted_flat() -> None:
 
 def test_a_fitted_calibration_keeps_what_was_not_fitted() -> None:
     package = {
-        "standard": "odxp/0.1",
+        "standard": "noulxp/0.1",
         "temperature": {"choice": 1.5, "noul": 2.0},
         "by_option_count": [
             {"type": "choice", "min": 3, "max": 5, "temperature": 1.7},
@@ -157,7 +157,7 @@ def test_a_fitted_calibration_keeps_what_was_not_fitted() -> None:
 
 
 def write_calibration(path: Path, temperatures: dict[str, float]) -> Path:
-    path.write_text(json.dumps({"standard": "odxp/0.1", "temperature": temperatures}))
+    path.write_text(json.dumps({"standard": "noulxp/0.1", "temperature": temperatures}))
     return path
 
 
@@ -174,7 +174,7 @@ def labels_from(model: Any, path: Path) -> Path:
 
 
 def test_readouts_answer_as_the_runtime_does(toy_package: Path) -> None:  # noqa: F811
-    from opendxp.runtime import load
+    from noulxp.runtime import load
 
     model = load(toy_package, device="cpu")
     items = [(c["request"]["state"], c["request"]["questions"]) for c in TOY_REQUESTS]
@@ -197,9 +197,9 @@ def test_a_runtime_answers_at_the_calibration_it_is_given(
     tokens: Any,
     tmp_path: Path,
 ) -> None:
-    from opendxp.conformance import generate, replay
-    from opendxp.package import open_package, sha256_file
-    from opendxp.runtime import load
+    from noulxp.conformance import generate, replay
+    from noulxp.package import open_package, sha256_file
+    from noulxp.runtime import load
 
     generate(toy_package, ToyNative(tokens), TOY_REQUESTS, log=lambda *_: None)
     path = write_calibration(tmp_path / "fitted.json", TEMPERATURES)
@@ -221,7 +221,7 @@ def test_a_calibration_that_breaks_the_schema_is_refused(
     toy_package: Path,  # noqa: F811
     tmp_path: Path,
 ) -> None:
-    from opendxp.runtime import load
+    from noulxp.runtime import load
 
     path = write_calibration(tmp_path / "bad.json", {"choice": -1.0})
     with pytest.raises(PackageError):
@@ -232,7 +232,7 @@ def test_calibrate_recovers_the_calibration_the_labels_were_made_at(
     toy_package: Path,  # noqa: F811
     tmp_path: Path,
 ) -> None:
-    from opendxp.runtime import load
+    from noulxp.runtime import load
 
     made = load(
         toy_package, device="cpu", calibration=write_calibration(tmp_path / "t.json", TEMPERATURES)
@@ -257,8 +257,8 @@ def test_the_command_writes_the_file_outside_the_package(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    from opendxp.cli import main
-    from opendxp.runtime import load
+    from noulxp.cli import main
+    from noulxp.runtime import load
 
     made = load(
         toy_package, device="cpu", calibration=write_calibration(tmp_path / "t.json", TEMPERATURES)
@@ -281,7 +281,7 @@ def test_a_server_names_the_calibration_it_answers_with(
     toy_package: Path,  # noqa: F811
     tmp_path: Path,
 ) -> None:
-    from opendxp.serving import load_models
+    from noulxp.serving import load_models
 
     path = write_calibration(tmp_path / "fitted.json", TEMPERATURES)
     models = load_models([toy_package], device="cpu", log=lambda *_: None, calibration=path)

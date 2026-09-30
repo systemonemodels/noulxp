@@ -12,8 +12,8 @@ from typing import Any
 
 import pytest
 
-from opendxp import schemas
-from opendxp.mcp import (
+from noulxp import schemas
+from noulxp.mcp import (
     INVALID_PARAMS,
     LEGACY,
     METHOD_NOT_FOUND,
@@ -24,7 +24,7 @@ from opendxp.mcp import (
     run,
     tool_name,
 )
-from opendxp.serving import ServedModel, load_models
+from noulxp.serving import ServedModel, load_models
 from test_conformance import TOY_REQUESTS, toy_package  # noqa: F401 - a fixture
 
 REQUEST = TOY_REQUESTS[0]["request"]
@@ -92,7 +92,7 @@ def test_the_modern_era(models: list[ServedModel]) -> None:
     assert found["resultType"] == "complete"
     assert found["supportedVersions"] == list(MODERN)
     assert found["capabilities"] == {"tools": {}}
-    assert found["_meta"]["io.modelcontextprotocol/serverInfo"]["name"] == "opendxp"
+    assert found["_meta"]["io.modelcontextprotocol/serverInfo"]["name"] == "noulxp"
 
     listed = rpc(server, "tools/list", {"_meta": META})["result"]
     assert listed["resultType"] == "complete" and listed["tools"][0]["name"] == "decide"
@@ -173,7 +173,7 @@ def test_the_stdio_framing(models: list[ServedModel]) -> None:
     assert len(replies) == 3  # nothing for the notification or the blank line
 
 
-def test_opendxp_mcp_over_real_stdio(toy_package: Path) -> None:  # noqa: F811
+def test_noulxp_mcp_over_real_stdio(toy_package: Path) -> None:  # noqa: F811
     """The command itself: only protocol messages on stdout, logs on stderr."""
     messages = [
         {
@@ -192,7 +192,7 @@ def test_opendxp_mcp_over_real_stdio(toy_package: Path) -> None:  # noqa: F811
         },
     ]
     done = subprocess.run(
-        [sys.executable, "-m", "opendxp", "mcp", str(toy_package), "--device", "cpu"],
+        [sys.executable, "-m", "noulxp", "mcp", str(toy_package), "--device", "cpu"],
         input="".join(json.dumps(m) + "\n" for m in messages),
         capture_output=True,
         text=True,

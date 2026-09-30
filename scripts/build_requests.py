@@ -1,4 +1,4 @@
-"""Write src/opendxp/data/requests-0.1.jsonl: the fixed request set conformance files are made from.
+"""Write src/noulxp/data/requests-0.1.jsonl: the fixed request set conformance files are made from.
 
 The set is deterministic and hand-written: every question type, 2 to 20
 options, bare and described options, instructions in several languages,
@@ -14,7 +14,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-OUT = Path(__file__).resolve().parents[1] / "src" / "opendxp" / "data" / "requests-0.1.jsonl"
+OUT = Path(__file__).resolve().parents[1] / "src" / "noulxp" / "data" / "requests-0.1.jsonl"
 
 
 def choice(instructions, criteria):
