@@ -1,6 +1,7 @@
 name: release
 
-# Publishes to PyPI when a version tag like v0.1.0 is pushed. See RELEASING.md.
+# Publishes to PyPI when a version tag like v0.1.0 is pushed; a tag like
+# v0.4.0-opendxp publishes the opendxp redirect alone. See RELEASING.md.
 
 on:
   push:
@@ -24,10 +25,20 @@ jobs:
 
       # A tag that disagrees with the package version would publish a release
       # whose name lies about its contents, and PyPI never lets a version be
-      # replaced once it exists.
+      # replaced once it exists. vX.Y.Z-opendxp is the opendxp redirect alone,
+      # at its own version, for when its release missed it.
       - name: Tag matches the package version
         run: |
           tag="${GITHUB_REF_NAME#v}"
+          if [[ "$tag" == *-opendxp ]]; then
+            legacy=$(grep -m1 '^version' legacy/opendxp/pyproject.toml | cut -d'"' -f2)
+            if [ "${tag%-opendxp}" != "$legacy" ]; then
+              echo "::error::tag v$tag and the opendxp redirect's version $legacy must match"
+              exit 1
+            fi
+            echo "REDIRECT_ONLY=1" >> "$GITHUB_ENV"
+            exit 0
+          fi
           version=$(grep -m1 '^version' pyproject.toml | cut -d'"' -f2)
           code=$(grep -m1 '^__version__' src/noulxp/__init__.py | cut -d'"' -f2)
           if [ "$tag" != "$version" ] || [ "$tag" != "$code" ]; then
@@ -36,6 +47,7 @@ jobs:
           fi
 
       - name: Test on the oldest and newest supported Python
+        if: env.REDIRECT_ONLY != '1'
         run: |
           for py in 3.11 3.13; do
             uv venv --python "$py" "/tmp/test-$py"
@@ -44,6 +56,7 @@ jobs:
           done
 
       - run: uv build
+        if: env.REDIRECT_ONLY != '1'
 
       # opendxp, the old name, is a package that installs noulxp. It is built
       # when its version is this tag's (0.4.0, the rename) and not after, since
@@ -52,23 +65,27 @@ jobs:
         run: |
           tag="${GITHUB_REF_NAME#v}"
           legacy=$(grep -m1 '^version' legacy/opendxp/pyproject.toml | cut -d'"' -f2)
-          if [ "$tag" = "$legacy" ]; then uv build legacy/opendxp -o dist-legacy/; fi
+          if [ "${tag%-opendxp}" = "$legacy" ]; then uv build legacy/opendxp -o dist-legacy/; fi
 
-      - run: uvx twine check --strict dist/* $(ls dist-legacy/* 2>/dev/null)
+      - run: uvx twine check --strict $(ls dist/* dist-legacy/* 2>/dev/null)
 
       - name: The wheels install and run in a clean environment
         run: |
           python -m venv /tmp/check
-          /tmp/check/bin/pip install dist/noulxp-*.whl
-          /tmp/check/bin/noulxp --version
-          /tmp/check/bin/noulxp info
+          if ls dist/noulxp-*.whl >/dev/null 2>&1; then
+            /tmp/check/bin/pip install dist/noulxp-*.whl
+            /tmp/check/bin/noulxp --version
+            /tmp/check/bin/noulxp info
+          fi
           if ls dist-legacy/opendxp-*.whl >/dev/null 2>&1; then
+            # Alone, the redirect takes noulxp from PyPI.
             /tmp/check/bin/pip install dist-legacy/opendxp-*.whl
             /tmp/check/bin/opendxp --version
             /tmp/check/bin/python -W ignore -c "import opendxp.package, noulxp.package; assert opendxp.package is noulxp.package"
           fi
 
       - uses: actions/upload-artifact@v4
+        if: hashFiles('dist/*') != ''
         with:
           name: dist
           path: dist/
@@ -91,10 +108,13 @@ jobs:
       id-token: write
     steps:
       - uses: actions/download-artifact@v4
+        id: noulxp
+        continue-on-error: true
         with:
           name: dist
           path: dist/
-      - uses: pypa/gh-action-pypi-publish@release/v1
+      - if: steps.noulxp.outcome == 'success'
+        uses: pypa/gh-action-pypi-publish@release/v1
 
       # The opendxp redirect, when this release has one. PyPI must trust this
       # repository for the opendxp project too (RELEASING.md); when it does
@@ -106,7 +126,8 @@ jobs:
           name: dist-legacy
           path: dist-legacy/
       - if: steps.legacy.outcome == 'success'
-        continue-on-error: true
+        # Beside noulxp it must not fail the release; alone, it is the release.
+        continue-on-error: ${{ !endsWith(github.ref_name, '-opendxp') }}
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: dist-legacy/

@@ -41,8 +41,8 @@ installs `noulxp` ([legacy/opendxp](legacy/opendxp)). Before tagging v0.4.0:
 The tag v0.4.0 then publishes `noulxp` 0.4.0 and `opendxp` 0.4.0 together,
 after one approval: the workflow builds the redirect only when its version is
 the tag's, and publishes it after noulxp, in a step of its own. Without step 3,
-noulxp is published all the same and that step fails; fix the publisher and
-re-run the failed job.
+noulxp is published all the same and that step fails: fix the publisher, then
+push the tag `v0.4.0-opendxp`, which builds and publishes the redirect alone.
 
 ## Each release
 
