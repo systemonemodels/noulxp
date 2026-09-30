@@ -141,6 +141,11 @@ It listens on 127.0.0.1:8790. To listen anywhere else it needs a token
 start and reports the result in `/v1/models`; `--cors ORIGIN` lets a browser
 page call it.
 
+A request that finds its model idle is answered at once; requests that arrive
+while the model reads wait and are read together, up to `--batch` (32) in one
+pass, so a GPU does more as more clients call it. `--batch 1` answers one at a
+time. A causal-letters package decodes rows together with `--batch-rows 16`.
+
 ## Measure it
 
 ```bash

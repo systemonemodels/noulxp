@@ -16,10 +16,12 @@ same machine and device, and publish both.
 
 from __future__ import annotations
 
+import contextlib
 import http.client
 import itertools
 import json
 import os
+import socket
 import statistics
 import threading
 import time
@@ -168,11 +170,30 @@ def bench_package(
 # --- a server, over HTTP --------------------------------------------------------------
 
 
+def _no_delay(sock: Any) -> None:
+    with contextlib.suppress(OSError, AttributeError):
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+
+
+class _HTTP(http.client.HTTPConnection):
+    def connect(self) -> None:
+        super().connect()
+        _no_delay(self.sock)
+
+
+class _HTTPS(http.client.HTTPSConnection):
+    def connect(self) -> None:
+        super().connect()
+        _no_delay(self.sock)
+
+
 class _Connection:
     """One client's connection to the server, kept open between its requests.
 
     An SDK keeps its connection alive; a client that opens one per request measures
-    the server accepting connections as much as answering.
+    the server accepting connections as much as answering. Nagle's algorithm is off,
+    as in curl, requests and browsers: http.client sends a request's headers and
+    body apart, and with it on the body can wait for the server's delayed ACK.
     """
 
     def __init__(self, url: str, token: str | None, timeout: float) -> None:
@@ -192,7 +213,7 @@ class _Connection:
         data = json.dumps(body).encode()
         for attempt in (1, 2):
             if self.conn is None:
-                kind = http.client.HTTPSConnection if self.https else http.client.HTTPConnection
+                kind = _HTTPS if self.https else _HTTP
                 self.conn = kind(self.host, self.port, timeout=self.timeout)
             try:
                 self.conn.request("POST", self.path, body=data, headers=self.headers)

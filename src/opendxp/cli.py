@@ -5,7 +5,7 @@ opendxp conformance generate PACKAGE --native CHECKPOINT --runtime laya|julia|de
 opendxp check PACKAGE [--device cpu|auto|coreml|cuda|openvino|qnn|directml|gpu]
 opendxp validate PACKAGE
 opendxp run PACKAGE --request request.json [--calibration calibration.json]
-opendxp serve PACKAGE... [--host 127.0.0.1] [--port 8790] [--token TOKEN] [--check]
+opendxp serve PACKAGE... [--host 127.0.0.1] [--port 8790] [--token TOKEN] [--check] [--batch 32]
 opendxp mcp PACKAGE...
 opendxp calibrate PACKAGE LABELS.jsonl [--test LABELS.jsonl] [--out calibration.json]
 opendxp bench PACKAGE|URL [--concurrency 1,4,16] [--usd-per-hour PRICE]
@@ -183,6 +183,8 @@ def cmd_serve(args: argparse.Namespace) -> int:
             log=_stderr,
             precision=args.precision,
             calibration=args.calibration,
+            batch=args.batch,
+            batch_rows=args.batch_rows,
         )
     except ValueError as exc:
         _stderr(str(exc))
@@ -446,6 +448,13 @@ def main(argv: list[str] | None = None) -> int:
         "--calibration",
         help=CALIBRATION_HELP + ", for one package",
     )
+    p.add_argument(
+        "--batch",
+        type=int,
+        default=32,
+        help="requests a model may read in one pass, from those waiting (1: one at a time)",
+    )
+    p.add_argument("--batch-rows", type=int, help="causal-letters: decode this many rows together")
     p.set_defaults(func=cmd_serve)
 
     p = sub.add_parser("mcp", help="serve packages as MCP tools on stdio (SPEC.md 12)")

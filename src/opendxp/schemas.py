@@ -34,13 +34,17 @@ def schema(name: str) -> dict[str, Any]:
     return data
 
 
-def errors(instance: Any, name: str) -> list[str]:
-    """Every way `instance` breaks the named schema, as readable lines."""
+@cache
+def validator(name: str) -> Any:
     from jsonschema import Draft202012Validator
 
-    validator = Draft202012Validator(schema(name))
+    return Draft202012Validator(schema(name))
+
+
+def errors(instance: Any, name: str) -> list[str]:
+    """Every way `instance` breaks the named schema, as readable lines."""
     out = []
-    for error in sorted(validator.iter_errors(instance), key=lambda e: list(e.absolute_path)):
+    for error in sorted(validator(name).iter_errors(instance), key=lambda e: list(e.absolute_path)):
         where = "/".join(str(p) for p in error.absolute_path) or "(root)"
         out.append(f"{where}: {error.message}")
     return out

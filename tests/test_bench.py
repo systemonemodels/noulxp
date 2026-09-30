@@ -99,3 +99,25 @@ def test_the_command_writes_a_report(
     assert code == 0
     assert json.loads(out.read_text())["levels"][0]["answered"] == len(REQUESTS)
     assert "decisions/s" in capsys.readouterr().out
+
+
+def test_the_client_turns_nagle_off(toy_package: Path) -> None:  # noqa: F811
+    import socket
+
+    from opendxp.bench import _Connection
+
+    loaded = load_models([toy_package], device="cpu", log=lambda *_: None)
+    server = serve(loaded, port=0, quiet=True)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        host, port = server.server_address[:2]
+        connection = _Connection(f"http://{host}:{port}/v1/systemone", None, 30.0)
+        status, answer, _ = connection.post(TOY_REQUESTS[0]["request"])
+        assert status == 200 and answer is not None
+        assert connection.conn is not None and connection.conn.sock is not None
+        assert connection.conn.sock.getsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY)
+        connection.close()
+    finally:
+        server.shutdown()
+        for model in loaded:
+            model.close()

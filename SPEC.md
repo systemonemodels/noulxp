@@ -693,6 +693,10 @@ it.
 A `200` answer is the response of section 3.6 (`schemas/response.schema.json`)
 with `model`, the id of the model that answered. It MAY add `latency_ms`.
 
+A server MAY read the rows of several requests in one pass. Each answer MUST be
+the one its request gets alone, but for floating-point rounding (as padding may
+not change a row's logits, 5.4).
+
 ### 11.3 Discovery
 
 `GET /v1/models` answers `{"object": "list", "data": [...]}`, one entry per

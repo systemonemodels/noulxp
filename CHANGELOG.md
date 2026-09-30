@@ -1,5 +1,37 @@
 # Changelog
 
+## Unreleased
+
+- **Fixed: `opendxp serve` answered no faster than ~40 ms a request on Linux.**
+  An answer's headers and body left in two writes with Nagle's algorithm on, so
+  on a kept-alive connection the body waited for the client's delayed ACK of
+  the headers. Answers now leave in one write, with `TCP_NODELAY`. Julia 1 on an
+  NVIDIA A40, one client: 27.6 decisions/s (p50 62 ms) before, 161.6 (p50
+  7.5 ms) after. macOS was not affected.
+- **`opendxp serve` reads the requests that wait together** (`--batch N`,
+  default 32; 1 answers one at a time as before). A request that finds its
+  model idle is read at once, in its own thread, as `predict` reads it; requests
+  that arrive while the model reads queue, and one thread reads them together
+  (`predict_many`). On an A40 at 64 clients, Julia 1 answered 262 decisions/s
+  (78 one at a time; 300 with fused attention), Laya multilingual 191 (87);
+  one client, 178 (p50 6 ms). `--batch-rows` decodes a causal-letters
+  package's rows together (AnyJev at one client: p50 119 to 66 ms).
+- The server's listen backlog is 128; it was socketserver's 5, past which a
+  burst of new clients was reset.
+- `opendxp bench`'s HTTP client turns Nagle's algorithm off, as curl, requests
+  and browsers do: http.client sends a request's headers and body apart.
+- Requests are validated with one compiled validator per schema, not a new one
+  per request.
+- **`opendxp export --opset 23`** (laya, julia): attention as ONNX's fused
+  `Attention` operator instead of a chain of small ones, with the mask expanded
+  to the shape onnxruntime's kernels take. On an A40 through onnxruntime 1.30,
+  6 to 14% more decisions per second one request at a time (Julia 1: 199 to
+  210); on an x86 server CPU 1.6 to 2.0 times; on an Apple M4 CPU, Julia 1 from
+  26.1 to 30.9. onnxruntime runs the operator on CUDA from 1.30: the runtime
+  refuses such a package on CUDA with an older onnxruntime rather than let
+  attention fall back to the CPU. encoder-markers reads the opset from the
+  manifest's weights entry.
+
 ## 0.3.0 (2026-09-30)
 
 - **`opendxp calibrate`** (SPEC.md 7.1): fits a package's temperatures, one per

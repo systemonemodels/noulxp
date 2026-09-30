@@ -39,6 +39,9 @@ def is_loopback(host: str) -> bool:
 
 class DecisionServer(ThreadingHTTPServer):
     daemon_threads = True
+    # Connections not yet accepted that the kernel holds (socketserver's default is 5:
+    # a burst of clients past it is reset or retried a second later).
+    request_queue_size = 128
 
     def __init__(
         self,
@@ -60,6 +63,11 @@ class Handler(BaseHTTPRequestHandler):
     server: DecisionServer
     server_version = f"opendxp/{__version__}"
     protocol_version = "HTTP/1.1"
+    # An answer leaves in one write (headers and body buffered, sent when the handler
+    # returns), with Nagle's algorithm off: otherwise, on a kept-alive connection, the
+    # body waits for the client's delayed ACK of the headers (40 ms on Linux) every time.
+    wbufsize = -1
+    disable_nagle_algorithm = True
 
     # --- replies ---------------------------------------------------------------
 
