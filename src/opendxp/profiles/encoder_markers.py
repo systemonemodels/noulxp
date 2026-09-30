@@ -25,7 +25,12 @@ from opendxp.answers import answer, softmax
 from opendxp.calibration import Calibration, Readout, described
 from opendxp.errors import PackageError, RequestError
 from opendxp.package import Package
-from opendxp.providers import STATIC_SHAPE_PROVIDERS, choose_onnx_providers, ort_session
+from opendxp.providers import (
+    STATIC_SHAPE_PROVIDERS,
+    check_fused_attention,
+    choose_onnx_providers,
+    ort_session,
+)
 from opendxp.request import Option, Question, parse_questions
 from opendxp.text import fill, state_text
 from opendxp.tokens import Tokens
@@ -264,6 +269,10 @@ class EncoderMarkersRuntime:
             raise PackageError("template budgets.total is over limits.max_tokens")
         self.pad_id = self.tokens.id(self.template.special["pad"])
         self.providers = choose_onnx_providers(provider)
+        import onnxruntime as ort
+
+        weights = package.manifest.get("files", {}).get("weights") or {}
+        check_fused_attention(int(weights.get("opset") or 0), self.providers, ort.__version__)
         # Providers that compile for fixed shapes get one session per shape bucket.
         self.static = (
             bool(static_shapes)

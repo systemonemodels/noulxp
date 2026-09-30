@@ -72,6 +72,26 @@ def choose_onnx_providers(preference: str = "auto") -> list[str]:
     return [name] if name == "CPUExecutionProvider" else [name, "CPUExecutionProvider"]
 
 
+# ONNX's Attention operator (opset 23) is one fused node per attention. onnxruntime runs it
+# on a CPU from 1.23 and on CUDA from 1.30; an older CUDA build would run those nodes on the
+# CPU, inside a session that says CUDA.
+FUSED_ATTENTION_OPSET = 23
+FUSED_ATTENTION_CUDA = (1, 30)
+
+
+def check_fused_attention(opset: int, providers: list[str], version: str) -> None:
+    """Refuse a graph with fused attention on a provider that cannot run it."""
+    if opset < FUSED_ATTENTION_OPSET or "CUDAExecutionProvider" not in providers:
+        return
+    have = tuple(int(x) for x in version.split(".")[:2] if x.isdigit())
+    if have < FUSED_ATTENTION_CUDA:
+        raise BackendUnavailable(
+            f"this graph uses ONNX's Attention operator (opset {opset}), which onnxruntime runs "
+            f"on CUDA from 1.30; this is {version}, which would run it on the CPU. Install "
+            "onnxruntime-gpu>=1.30, or use a package exported at opset 18"
+        )
+
+
 def ort_session(
     path: Path,
     *,

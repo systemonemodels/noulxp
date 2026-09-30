@@ -35,10 +35,16 @@ def cmd_export(args: argparse.Namespace) -> int:
     options: dict[str, Any] = {"weights_mode": mode}
     if args.name:
         options["name"] = args.name
+    if args.opset != 18 and args.family not in ("laya", "julia"):
+        raise SystemExit("--opset applies to the encoder families (laya, julia)")
     if args.family == "laya":
         from opendxp.export import laya as exporter
+
+        options["opset"] = args.opset
     elif args.family == "julia":
         from opendxp.export import julia as exporter
+
+        options["opset"] = args.opset
 
         if args.max_tokens:
             options["max_tokens"] = args.max_tokens
@@ -336,6 +342,14 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--name", help="the package name (default: the model's registry name)")
     p.add_argument("--copy", action="store_true", help="copy weights instead of hard-linking")
     p.add_argument("--max-tokens", type=int, help="julia: total token budget (default 8192)")
+    p.add_argument(
+        "--opset",
+        type=int,
+        choices=[18, 23],
+        default=18,
+        help="laya, julia: 23 exports attention as ONNX's fused Attention operator "
+        "(onnxruntime 1.23+ on a CPU, 1.30+ on CUDA)",
+    )
     p.add_argument(
         "--official-onnx",
         help="julia: map SupersonicLabs/Julia-1-ONNX's model.onnx instead of exporting a graph",

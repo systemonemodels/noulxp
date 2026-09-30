@@ -298,6 +298,7 @@ def export(
     name: str = "supersonic-labs/julia-1",
     weights_mode: str = "link",
     max_tokens: int | None = None,
+    opset: int = 18,
     head_tokens: int = 512,
     official_onnx: Path | None = None,
     source: dict[str, Any] | None = None,
@@ -344,6 +345,7 @@ def export(
             trace_batch(batches),
             out_dir,
             out_dir / WEIGHTS_NAME,
+            opset=opset,
             metadata={"odxp.source": name},
         )
     log(f"graph written: {graph}")

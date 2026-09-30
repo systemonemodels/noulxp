@@ -159,14 +159,61 @@ def export_graph(
         {"odxp.standard": BASE, "odxp.profile": "encoder-markers", **(metadata or {})}
     )
     out_dir.mkdir(parents=True, exist_ok=True)
-    ir.save(model, str(out_dir / GRAPH_NAME))
+    path = out_dir / GRAPH_NAME
+    ir.save(model, str(path))
+    attention = sum(1 for n in graph if n.op_type == "Attention" and n.domain in ("", "ai.onnx"))
+    expanded = 0
+    if attention:
+        import onnx
+
+        proto = onnx.load(str(path), load_external_data=False)
+        expanded = expand_attention_masks(proto)
+        if expanded:
+            onnx.save(proto, str(path))
     return {
         "opset": opset,
         "initializers_from_checkpoint": mapped,
         "cast_from_half_precision": cast,
         "nodes": sum(1 for _ in graph),
-        "graph_bytes": (out_dir / GRAPH_NAME).stat().st_size,
+        "attention_nodes": attention,
+        "attention_masks_expanded": expanded,
+        "graph_bytes": path.stat().st_size,
     }
+
+
+def expand_attention_masks(model: Any) -> int:
+    """Give each Attention node's mask its full (..., query length, key length) shape.
+
+    ONNX lets attn_mask broadcast, but onnxruntime's kernels (1.23 to 1.30) require its
+    second-to-last dimension to be the query length: a padding mask of shape
+    (batch, 1, 1, keys) is refused. Each mask is expanded before its node; the result is
+    the same attention. Returns how many masks were expanded.
+    """
+    from onnx import helper
+
+    graph = model.graph
+    nodes, changed = [], 0
+    for node in graph.node:
+        if node.op_type == "Attention" and node.domain in ("", "ai.onnx"):
+            if len(node.input) > 3 and node.input[3]:
+                q, k, mask = node.input[0], node.input[1], node.input[3]
+                p = f"odxp_mask{changed}"
+                nodes += [
+                    helper.make_node("Shape", [mask], [p + "_shape"], start=0, end=-2),
+                    helper.make_node("Shape", [q], [p + "_q"], start=-2, end=-1),
+                    helper.make_node("Shape", [k], [p + "_k"], start=-2, end=-1),
+                    helper.make_node(
+                        "Concat", [p + "_shape", p + "_q", p + "_k"], [p + "_to"], axis=0
+                    ),
+                    helper.make_node("Expand", [mask, p + "_to"], [p + "_full"]),
+                ]
+                node.input[3] = p + "_full"
+                changed += 1
+        nodes.append(node)
+    if changed:
+        del graph.node[:]
+        graph.node.extend(nodes)
+    return changed
 
 
 def compare_with_torch(

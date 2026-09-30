@@ -176,6 +176,7 @@ def export(
     name: str | None = None,
     weights_mode: str = "link",
     source: dict[str, Any] | None = None,
+    opset: int = 18,
     log: Any = print,
 ) -> dict[str, Any]:
     checkpoint, out_dir = Path(checkpoint), Path(out_dir)
@@ -206,6 +207,7 @@ def export(
         trace_batch(batches),
         out_dir,
         out_dir / WEIGHTS_NAME,
+        opset=opset,
         metadata={"odxp.source": name or str(cfg.get("model_name", "laya"))},
     )
     log(f"graph written: {graph}")
