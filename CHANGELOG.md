@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.0 (2026-09-30)
 
 - **`opendxp calibrate`** (SPEC.md 7.1): fits a package's temperatures, one per
   question type, to labelled requests (an option's key, a distribution, or an
