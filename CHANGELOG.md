@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.1 (2026-09-30)
 
 - **Fixed: `opendxp serve` answered no faster than ~40 ms a request on Linux.**
   An answer's headers and body left in two writes with Nagle's algorithm on, so
