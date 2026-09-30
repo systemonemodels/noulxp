@@ -271,8 +271,9 @@ class EncoderMarkersRuntime:
         self.providers = choose_onnx_providers(provider)
         import onnxruntime as ort
 
-        weights = package.manifest.get("files", {}).get("weights") or {}
-        check_fused_attention(int(weights.get("opset") or 0), self.providers, ort.__version__)
+        check_fused_attention(
+            int(package.entry("weights").get("opset") or 0), self.providers, ort.__version__
+        )
         # Providers that compile for fixed shapes get one session per shape bucket.
         self.static = (
             bool(static_shapes)

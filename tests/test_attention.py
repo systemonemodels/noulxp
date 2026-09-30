@@ -7,6 +7,7 @@ import pytest
 
 from opendxp.errors import BackendUnavailable
 from opendxp.providers import check_fused_attention
+from test_conformance import toy_package  # noqa: F401 - a fixture
 
 onnx = pytest.importorskip("onnx")
 ort = pytest.importorskip("onnxruntime")
@@ -63,3 +64,20 @@ def test_fused_attention_is_refused_where_it_would_run_on_the_cpu() -> None:
     check_fused_attention(23, cuda, "1.30.0")
     check_fused_attention(23, ["CPUExecutionProvider"], "1.23.2")
     check_fused_attention(18, cuda, "1.23.2")
+
+
+def test_the_runtime_reads_the_opset_from_the_manifest(toy_package, monkeypatch) -> None:  # noqa: F811
+    """A package whose weights say opset 23 is refused on CUDA before any session exists."""
+    import json
+
+    from opendxp.profiles import encoder_markers
+    from opendxp.runtime import load
+
+    manifest = json.loads((toy_package / "odxp.json").read_text())
+    manifest["weights"]["opset"] = 23
+    (toy_package / "odxp.json").write_text(json.dumps(manifest))
+    cuda = ["CUDAExecutionProvider", "CPUExecutionProvider"]
+    monkeypatch.setattr(encoder_markers, "choose_onnx_providers", lambda _provider: cuda)
+    monkeypatch.setattr(ort, "__version__", "1.23.2")
+    with pytest.raises(BackendUnavailable, match=r"opset 23"):
+        load(toy_package, device="cuda")
