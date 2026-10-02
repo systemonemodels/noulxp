@@ -33,8 +33,8 @@ on any machine.
 
 NoulXP is open: the specification, the schemas and this reference
 implementation are Apache-2.0, and anyone may build an engine for it. The
-[System One Engine](https://systemonemodels.tech/docs/engine), which serves
-the live playgrounds on [System One Models](https://systemonemodels.tech),
+[System One Engine](https://systemonemodels.ai/docs/engine), which serves
+the live playgrounds on [System One Models](https://systemonemodels.ai),
 runs NoulXP packages and shows which models are NoulXP compatible.
 
 ## The two profiles

@@ -50,7 +50,7 @@ noulxp = "noulxp.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/systemonemodels/noulxp"
-Documentation = "https://systemonemodels.tech/docs/noulxp"
+Documentation = "https://systemonemodels.ai/docs/noulxp"
 Specification = "https://github.com/systemonemodels/noulxp/blob/main/SPEC.md"
 Validation = "https://github.com/systemonemodels/noulxp/blob/main/VALIDATION.md"
 Issues = "https://github.com/systemonemodels/noulxp/issues"
