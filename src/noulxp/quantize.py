@@ -342,10 +342,18 @@ def drop_unused_initializers(graph: Any) -> None:
             graph.initializer.remove(tensor)
 
 
+# Nodes whose output says how big a tensor is, not what it holds: an exported graph often
+# takes the batch size from whichever input has it, question_type included, and that is
+# not a path by which the input's values reach the encoder.
+SHAPE_OPS = ("Shape", "Size")
+
+
 def descendants(graph: Any, values: set[str]) -> set[str]:
-    """The names of every node that reads, directly or not, one of `values`."""
+    """The names of every node whose result depends on the values of one of `values`."""
     consumers: dict[str, list[Any]] = defaultdict(list)
     for node in graph.node:
+        if node.op_type in SHAPE_OPS:
+            continue
         for name in node.input:
             if name:
                 consumers[name].append(node)

@@ -96,6 +96,7 @@ def toy_encoder(path: Path, opset: int = 18) -> None:
         numpy_helper.from_array(np.array([1], np.int64), "axis1"),
         numpy_helper.from_array(np.array([-1], np.int64), "axis_last"),
         numpy_helper.from_array(np.array([D], np.int64), "width"),
+        numpy_helper.from_array(np.array([-1], np.int64), "minus_one"),
         numpy_helper.from_array(np.array(-1e4, np.float32), "floor"),
     ]
     n = helper.make_node
@@ -112,7 +113,12 @@ def toy_encoder(path: Path, opset: int = 18) -> None:
         n("Sin", ["angles"], ["sin"], name="sin"),
         n("Mul", ["h0", "cos"], ["h_cos"], name="h_cos"),
         n("Mul", ["h0", "sin"], ["h_sin"], name="h_sin"),
-        n("Add", ["h_cos", "h_sin"], ["h1"], name="h1"),
+        n("Add", ["h_cos", "h_sin"], ["h1_flat"], name="h1_flat"),
+        # the batch size taken from question_type's shape, as exported graphs do: a shape,
+        # not a value, so the encoder stays the encoder
+        n("Shape", ["question_type"], ["qt_shape"], name="qt_shape"),
+        n("Concat", ["qt_shape", "minus_one", "width"], ["h1_shape"], name="h1_shape", axis=0),
+        n("Reshape", ["h1_flat", "h1_shape"], ["h1"], name="h1"),
         # a Linear stored transposed, as the converters keep checkpoint tensors
         n("Transpose", ["w1_transposed"], ["w1"], name="w1", perm=[1, 0]),
         n("MatMul", ["h1", "w1"], ["h2"], name="linear1"),
