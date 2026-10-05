@@ -275,6 +275,30 @@ def test_fp16_converts_the_encoder_products_and_keeps_head_and_angles(
     assert report["argmax_agreement"]["agree"] == report["argmax_agreement"]["total"]
 
 
+def test_hard_linked_weights_are_read(encoder_package: Path, tmp_path: Path):
+    """The converters hard-link a checkpoint's weights into the package; onnx.load refuses
+    such a file, so the quantiser reads the external data itself."""
+    import os
+
+    from noulxp.quantize import quantize
+
+    os.link(encoder_package / "model.safetensors", tmp_path / "checkpoint.safetensors")
+    made = quantize(encoder_package, tmp_path / "linked-fp16", "fp16", log=lambda *_: None)
+    assert made["source"]["derived"]["products_float16"] == 4
+
+
+def test_a_failed_run_leaves_no_package(encoder_package: Path, tmp_path: Path, monkeypatch):
+    import noulxp.quantize as q
+
+    def broken(*_: Any) -> Any:
+        raise RuntimeError("no")
+
+    monkeypatch.setattr(q, "half_products", broken)
+    with pytest.raises(RuntimeError):
+        q.quantize(encoder_package, tmp_path / "broken", "fp16", log=lambda *_: None)
+    assert not (tmp_path / "broken").exists() and not (tmp_path / "broken.partial").exists()
+
+
 def test_int8_quantizes_the_encoder_weights_and_not_the_head(encoder_package: Path, tmp_path: Path):
     pytest.importorskip("onnxruntime.quantization")
     from noulxp.quantize import quantize

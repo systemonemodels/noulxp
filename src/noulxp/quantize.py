@@ -31,6 +31,7 @@ import ctypes
 import importlib.metadata
 import json
 import os
+import shutil
 import struct
 import tempfile
 from collections import defaultdict, deque
@@ -113,11 +114,36 @@ def quantize(
             "the source package has no conformance file: a derived package is checked against "
             "the answers its model's own code gave on the original weights (SPEC.md 10)"
         )
-    out = Path(out_dir)
-    if out.exists() and any(out.iterdir()):
-        raise NoulXPError(f"{out} is not empty")
-    out.mkdir(parents=True, exist_ok=True)
+    final = Path(out_dir)
+    if final.exists() and any(final.iterdir()):
+        raise NoulXPError(f"{final} is not empty")
+    # Written beside the target and renamed into place when whole: a failed run leaves
+    # nothing that looks like a package.
+    out = final.with_name(final.name + ".partial")
+    shutil.rmtree(out, ignore_errors=True)
+    out.mkdir(parents=True)
+    try:
+        manifest = _derive(package, out, to, name, weights_mode, threads, allow_requantize, log)
+    except BaseException:
+        shutil.rmtree(out, ignore_errors=True)
+        raise
+    if final.exists():
+        final.rmdir()
+    out.rename(final)
+    return manifest
 
+
+def _derive(
+    package: Package,
+    out: Path,
+    to: str,
+    name: str | None,
+    weights_mode: str,
+    threads: int | None,
+    allow_requantize: bool,
+    log: Any,
+) -> dict[str, Any]:
+    conformance = package.manifest["conformance"]
     manifest: dict[str, Any] = json.loads(json.dumps(package.manifest))
     for key in ("tokenizer", "template", "prompt", "calibration", "conformance"):
         value = manifest.get(key)
@@ -160,9 +186,45 @@ def _require_onnx() -> Any:
     return onnx
 
 
+def load_graph(package: Package) -> Any:
+    """The package's ONNX graph with its weights read into it.
+
+    onnx.load would read the external data itself, but it refuses a file with more than
+    one hard link, and the converters hard-link a checkpoint's weights into the package
+    (the published bytes, not a second copy). Each tensor is read here by its recorded
+    offset and length, from files inside the package only.
+    """
+    import onnx
+    from onnx import TensorProto
+
+    model = onnx.load(str(package.file("weights")), load_external_data=False)
+    tensors = list(model.graph.initializer)
+    for node in model.graph.node:
+        tensors += [a.t for a in node.attribute if a.type == onnx.AttributeProto.TENSOR]
+    files: dict[Path, Any] = {}
+    try:
+        for tensor in tensors:
+            if tensor.data_location != TensorProto.EXTERNAL:
+                continue
+            info = {e.key: e.value for e in tensor.external_data}
+            path = package.resolve(info["location"])
+            if path not in files:
+                files[path] = open(path, "rb")  # closed below
+            fh = files[path]
+            fh.seek(int(info.get("offset") or 0))
+            length = info.get("length")
+            tensor.raw_data = fh.read(int(length)) if length is not None else fh.read()
+            tensor.data_location = TensorProto.DEFAULT
+            del tensor.external_data[:]
+    finally:
+        for fh in files.values():
+            fh.close()
+    return model
+
+
 def _onnx(package: Package, out: Path, to: str, log: Any) -> tuple[dict[str, Any], dict[str, Any]]:
     onnx = _require_onnx()
-    model = onnx.load(str(package.file("weights")))  # with its external data
+    model = load_graph(package)
     graph = model.graph
     name_nodes(graph)
     folded = fold_weight_transforms(graph)
