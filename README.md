@@ -39,14 +39,24 @@ runs NoulXP packages and shows which models are NoulXP compatible.
 
 ## The two profiles
 
-| Profile | Models | Weights | The engine reads |
+| Profile | Converted and checked | Weights | The engine reads |
 | --- | --- | --- | --- |
-| `encoder-markers` | Laya, Julia 1, Von, open-jev, GLiNER2.5-Decide | ONNX | `template.json`: how to build the token ids and one marker position per option |
-| `causal-letters` | Decider, AnyJev, Kev, Nimble, JevK5, lev | GGUF | `prompt.json`: the prompt pieces, the option labels and where the answer letter is read |
+| `encoder-markers` | Laya, Julia 1 | ONNX | `template.json`: how to build the token ids and one marker position per option |
+| `causal-letters` | Decider, AnyJev | GGUF | `prompt.json`: the prompt pieces, the option labels and where the answer letter is read |
 
 ONNX runs through ONNX Runtime (CPU, CUDA, Core ML, OpenVINO, QNN, DirectML);
 GGUF through llama.cpp (CPU, Metal, CUDA, HIP, SYCL, Vulkan). The engine picks
 the device, not the model's author.
+
+Other decision models need additions to the spec before they can be packaged.
+Von, open-jev and GLiNER2.5-Decide are encoders, but Von isolates each
+option's attention and sets its temperature from the input, open-jev reads
+every question of a request in one sequence and pools spans of tokens, and
+GLiNER2.5-Decide encodes a schema of labels and returns one label with a
+confidence rather than every option's probability. Among language models, lev
+averages two option orders and has a learned head for its longest menus, and
+this-that-model answers every question of a request in one sequence. Nimble and
+JevK5 also read one-token answers; no converter exists for them yet.
 
 New in 0.2, a causal-letters prompt can lay out each question type on its own,
 inside the model's chat template, and ask a question once per cyclic shift of
