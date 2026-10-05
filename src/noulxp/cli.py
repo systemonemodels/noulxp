@@ -1,7 +1,7 @@
 """The `noulxp` command.
 
 noulxp export laya|julia|decider|anyjev CHECKPOINT OUT_DIR
-noulxp quantize PACKAGE OUT_DIR --to fp16|int8|f32|f16|bf16|q8_0|q6_k|q5_k_m|q4_k_m
+noulxp quantize PACKAGE OUT_DIR --to fp16|int8|int8-block|f32|f16|bf16|q8_0|q6_k|q5_k_m|q4_k_m
 noulxp conformance generate PACKAGE --native CHECKPOINT --runtime laya|julia|decider|anyjev
 noulxp check PACKAGE [--device cpu|auto|coreml|cuda|openvino|qnn|directml|gpu]
 noulxp validate PACKAGE
@@ -414,8 +414,8 @@ def main(argv: list[str] | None = None) -> int:
         "--to",
         required=True,
         choices=list(TARGETS),
-        help="encoder-markers: fp16 (float16 products, as autocast) or int8 (dynamic, for CPUs); "
-        "causal-letters: a llama.cpp type",
+        help="encoder-markers: fp16 (float16 products, as autocast), int8 (dynamic, per tensor) "
+        "or int8-block (int8 in blocks of 32, ONNX Runtime only); causal-letters: a llama.cpp type",
     )
     p.add_argument("--name", help="the package name (default: the source's name:TARGET)")
     p.add_argument("--copy", action="store_true", help="copy files instead of hard-linking")

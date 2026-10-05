@@ -18,7 +18,14 @@ encoder-markers (ONNX):
           whole radians at float16.
     int8  dynamic int8 quantisation for CPUs (onnxruntime.quantization.quantize_dynamic):
           the encoder's weight matrices as int8 per output column, activations as
-          uint8 per call (MatMulInteger); the decision head stays float32.
+          uint8 per call (MatMulInteger, standard ONNX); the decision head stays float32.
+          One scale per activation tensor: an encoder whose activations have outliers
+          (ModernBERT's do) loses its answers, which `noulxp check` shows.
+    int8-block
+          int8 in blocks of 32: the encoder's weight matrices as int8 with one scale per
+          32 values, and activations quantised per block of 32 as each product runs
+          (ONNX Runtime's MatMulNBits, accuracy level 4), so an outlier costs its own
+          block only. A contrib operator: the package runs on ONNX Runtime alone.
 
 causal-letters (GGUF): llama.cpp's own quantiser (llama_model_quantize) from F32,
 F16 or BF16 weights to f32, f16, bf16, q8_0, q6_k, q5_k_m, q5_k_s, q4_k_m or
@@ -43,7 +50,9 @@ from noulxp.errors import BackendUnavailable, NoulXPError, PackageError
 from noulxp.export.common import entry, now, place, write_manifest
 from noulxp.package import Package, open_package
 
-ONNX_TARGETS = ("fp16", "int8")
+ONNX_TARGETS = ("fp16", "int8", "int8-block")
+# int8-block: values per block of weights (and of activations, at accuracy level 4).
+INT8_BLOCK = 32
 # llama.cpp's file types (llama.h, enum llama_ftype) by the names `--to` takes.
 GGUF_TARGETS = {
     "f32": "ALL_F32",
@@ -250,12 +259,20 @@ def _onnx(package: Package, out: Path, to: str, log: Any) -> tuple[dict[str, Any
                 **stats,
             )
             _save(model, out)
-        else:
+        elif to == "int8":
             stats = _int8(model, keep, Path(tmp), out)
             log(f"int8: {stats}")
             details.update(
                 method="onnxruntime.quantization.quantize_dynamic: MatMul with constant weights, "
                 "int8 per output column, uint8 activations",
+                **stats,
+            )
+        else:
+            stats = _int8_block(model, keep, out)
+            log(f"int8-block: {stats}")
+            details.update(
+                method=f"onnxruntime MatMulNBits: MatMul with constant weights, int8 weights and "
+                f"activations in blocks of {INT8_BLOCK} (accuracy level 4)",
                 **stats,
             )
     graph_model = onnx.load(str(out / WEIGHTS_GRAPH), load_external_data=False)
@@ -554,6 +571,49 @@ def _int8(model: Any, keep: set[str], tmp: Path, out: Path) -> dict[str, Any]:
         "products_int8": ops.count("MatMulInteger"),
         "products_float32": ops.count("MatMul"),
         "excluded_head_and_rotary": len(excluded),
+        "onnxruntime": importlib.metadata.version(_ort_distribution()),
+    }
+
+
+def _int8_block(model: Any, keep: set[str], out: Path) -> dict[str, Any]:
+    try:
+        from onnxruntime.quantization.matmul_nbits_quantizer import (
+            DefaultWeightOnlyQuantConfig,
+            MatMulNBitsQuantizer,
+        )
+        from onnxruntime.quantization.quant_utils import QuantFormat
+    except ImportError as exc:
+        raise BackendUnavailable(
+            'int8-block needs onnxruntime and onnx-ir: pip install "noulxp[export,onnx]"'
+        ) from exc
+
+    excluded = sorted(n.name for n in model.graph.node if n.name in keep and n.op_type == "MatMul")
+    config = DefaultWeightOnlyQuantConfig(
+        block_size=INT8_BLOCK,
+        is_symmetric=True,
+        accuracy_level=4,
+        quant_format=QuantFormat.QOperator,
+        op_types_to_quantize=("MatMul",),
+        bits=8,
+    )
+    quantizer = MatMulNBitsQuantizer(
+        model,
+        bits=8,
+        block_size=INT8_BLOCK,
+        is_symmetric=True,
+        accuracy_level=4,
+        nodes_to_exclude=excluded,
+        algo_config=config,
+    )
+    quantizer.process()
+    result = quantizer.model.model
+    _save(result, out)
+    ops = [n.op_type for n in result.graph.node]
+    return {
+        "products_int8": ops.count("MatMulNBits"),
+        "products_float32": ops.count("MatMul"),
+        "excluded_head_and_rotary": len(excluded),
+        "block": INT8_BLOCK,
         "onnxruntime": importlib.metadata.version(_ort_distribution()),
     }
 

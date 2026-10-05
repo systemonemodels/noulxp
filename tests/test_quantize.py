@@ -327,6 +327,28 @@ def test_int8_quantizes_the_encoder_weights_and_not_the_head(encoder_package: Pa
     assert report["max_abs_dp"] < 0.1  # int8 is checked, not assumed: here it is close
 
 
+def test_int8_block_quantizes_the_encoder_weights_in_blocks(encoder_package: Path, tmp_path: Path):
+    pytest.importorskip("onnx_ir")
+    pytest.importorskip("onnxruntime.quantization.matmul_nbits_quantizer")
+    from noulxp.quantize import quantize
+
+    out = tmp_path / "toy-int8-block"
+    made = quantize(encoder_package, out, "int8-block", log=lambda *_: None)
+    model = _graph(out / "model.onnx")
+    blocks = [n for n in model.graph.node if n.op_type == "MatMulNBits"]
+    assert len(blocks) == 2  # linear1 and linear2: the products with constant weights
+    for node in blocks:
+        attrs = {a.name: a.i for a in node.attribute}
+        assert attrs["bits"] == 8 and attrs["block_size"] == 32 and attrs["accuracy_level"] == 4
+    names = {n.name for n in model.graph.node}
+    assert {"head_linear", "angles", "scores", "attend"} <= names
+    derived = made["source"]["derived"]
+    assert (derived["products_int8"], derived["block"]) == (2, 32)
+    assert problems(out) == []
+    report = check(out, device="cpu")
+    assert report["max_abs_dp"] < 0.05
+
+
 def test_quantize_refuses_what_it_cannot_do(encoder_package: Path, tmp_path: Path):
     from noulxp.quantize import quantize
 
