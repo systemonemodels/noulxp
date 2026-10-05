@@ -20,7 +20,7 @@ from typing import Any, ClassVar
 
 import pytest
 
-from noulxp.conformance import check, generate, read_jsonl
+from noulxp.conformance import generate, read_jsonl
 from noulxp.errors import NoulXPError
 from noulxp.export import laya as laya_export
 from noulxp.export.common import entry, manifest, place, write_json, write_manifest
@@ -166,6 +166,16 @@ def toy_encoder(path: Path, opset: int = 18) -> None:
     )
 
 
+@pytest.fixture(autouse=True, scope="module")
+def _release_sessions():  # type: ignore[no-untyped-def]
+    """Free this module's ONNX Runtime sessions before the interpreter shuts down: on macOS a
+    session still alive at exit can abort the process after every test has passed."""
+    yield
+    import gc
+
+    gc.collect()
+
+
 class RuntimeNative:
     """The float32 toy package's own answers stand in for a model's own code."""
 
@@ -213,6 +223,22 @@ def encoder_package(tmp_path: Path, tokenizer_file: Path) -> Path:
     generate(out, native, REQUESTS, log=lambda *_: None)
     native.model.close()
     return out
+
+
+def cli(*args: str) -> Any:
+    """`noulxp ARGS` in a process of its own. Every run of a derived package's graph goes
+    through one: on macOS, a pytest process that has run the float16, int8 and MatMulNBits
+    kernels next to many other ONNX Runtime sessions can abort at exit, tests all passed."""
+    import subprocess
+
+    return subprocess.run([sys.executable, "-m", "noulxp", *args], capture_output=True, text=True)
+
+
+def cli_check(package: Path, tmp_path: Path) -> dict[str, Any]:
+    report = tmp_path / f"{package.name}.check.json"
+    cli("check", str(package), "--report", str(report))
+    data: dict[str, Any] = json.loads(report.read_text())
+    return data
 
 
 def problems(package: Path) -> list[str]:
@@ -275,7 +301,7 @@ def test_fp16_converts_the_encoder_products_and_keeps_head_and_angles(
     assert not (out / "model.safetensors").exists()
     assert problems(out) == []
 
-    report = check(out, device="cpu")
+    report = cli_check(out, tmp_path)
     assert report["passed"], report["failures"]
     assert report["max_abs_dp"] < 0.01
     assert report["argmax_agreement"]["agree"] == report["argmax_agreement"]["total"]
@@ -322,7 +348,7 @@ def test_int8_quantizes_the_encoder_weights_and_not_the_head(encoder_package: Pa
     assert derived["excluded_head_and_rotary"] == 2  # head_linear and angles
     assert problems(out) == []
 
-    report = check(out, device="cpu")
+    report = cli_check(out, tmp_path)
     assert report["cases"] == len(REQUESTS)
     assert report["max_abs_dp"] < 0.1  # int8 is checked, not assumed: here it is close
 
@@ -330,10 +356,9 @@ def test_int8_quantizes_the_encoder_weights_and_not_the_head(encoder_package: Pa
 def test_int8_block_quantizes_the_encoder_weights_in_blocks(encoder_package: Path, tmp_path: Path):
     pytest.importorskip("onnx_ir")
     pytest.importorskip("onnxruntime.quantization.matmul_nbits_quantizer")
-    from noulxp.quantize import quantize
-
     out = tmp_path / "toy-int8-block"
-    made = quantize(encoder_package, out, "int8-block", log=lambda *_: None)
+    made = cli("quantize", str(encoder_package), str(out), "--to", "int8-block")
+    assert made.returncode == 0, made.stderr
     model = _graph(out / "model.onnx")
     blocks = [n for n in model.graph.node if n.op_type == "MatMulNBits"]
     assert len(blocks) == 2  # linear1 and linear2: the products with constant weights
@@ -342,11 +367,10 @@ def test_int8_block_quantizes_the_encoder_weights_in_blocks(encoder_package: Pat
         assert attrs["bits"] == 8 and attrs["block_size"] == 32 and attrs["accuracy_level"] == 4
     names = {n.name for n in model.graph.node}
     assert {"head_linear", "angles", "scores", "attend"} <= names
-    derived = made["source"]["derived"]
+    derived = open_package(out).manifest["source"]["derived"]
     assert (derived["products_int8"], derived["block"]) == (2, 32)
     assert problems(out) == []
-    report = check(out, device="cpu")
-    assert report["max_abs_dp"] < 0.05
+    assert cli_check(out, tmp_path)["max_abs_dp"] < 0.05
 
 
 def test_quantize_refuses_what_it_cannot_do(encoder_package: Path, tmp_path: Path):
