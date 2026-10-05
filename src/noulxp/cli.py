@@ -1,6 +1,7 @@
 """The `noulxp` command.
 
 noulxp export laya|julia|decider|anyjev CHECKPOINT OUT_DIR
+noulxp quantize PACKAGE OUT_DIR --to fp16|int8|f32|f16|bf16|q8_0|q6_k|q5_k_m|q4_k_m
 noulxp conformance generate PACKAGE --native CHECKPOINT --runtime laya|julia|decider|anyjev
 noulxp check PACKAGE [--device cpu|auto|coreml|cuda|openvino|qnn|directml|gpu]
 noulxp validate PACKAGE
@@ -73,6 +74,34 @@ def cmd_export(args: argparse.Namespace) -> int:
         "--runtime",
         args.family,
     )
+    return 0
+
+
+def _size(n: int) -> str:
+    for unit, scale in (("GB", 1e9), ("MB", 1e6), ("kB", 1e3)):
+        if n >= scale:
+            return f"{n / scale:.1f} {unit}"
+    return f"{n} B"
+
+
+def cmd_quantize(args: argparse.Namespace) -> int:
+    from noulxp.quantize import quantize
+
+    out = Path(args.out_dir)
+    manifest = quantize(
+        Path(args.package),
+        out,
+        args.to,
+        name=args.name,
+        weights_mode="copy" if args.copy else "link",
+        threads=args.threads,
+        allow_requantize=args.allow_requantize,
+        log=_stderr,
+    )
+    weights = manifest["weights"]
+    size = sum((out / f["path"]).stat().st_size for f in [weights, *(weights.get("data") or [])])
+    print(f"wrote {out / 'noulxp.json'} ({manifest['profile']}, {args.to}, weights {_size(size)})")
+    print("next: noulxp check", args.out_dir, "(the source package's conformance file)")
     return 0
 
 
@@ -371,6 +400,32 @@ def main(argv: list[str] | None = None) -> int:
         help="anyjev: rotate the options sorted by text instead of the request's order",
     )
     p.set_defaults(func=cmd_export)
+
+    from noulxp.quantize import TARGETS
+
+    p = sub.add_parser(
+        "quantize",
+        help="a derived package: the same model with its weights at another precision "
+        "(SPEC.md 10), checked against the source package's conformance file",
+    )
+    p.add_argument("package", help="the source package (its conformance file comes along)")
+    p.add_argument("out_dir")
+    p.add_argument(
+        "--to",
+        required=True,
+        choices=list(TARGETS),
+        help="encoder-markers: fp16 (float16 products, as autocast) or int8 (dynamic, for CPUs); "
+        "causal-letters: a llama.cpp type",
+    )
+    p.add_argument("--name", help="the package name (default: the source's name:TARGET)")
+    p.add_argument("--copy", action="store_true", help="copy files instead of hard-linking")
+    p.add_argument("--threads", type=int, help="causal-letters: llama.cpp's quantising threads")
+    p.add_argument(
+        "--allow-requantize",
+        action="store_true",
+        help="causal-letters: quantise weights that are already quantised (loses more)",
+    )
+    p.set_defaults(func=cmd_quantize)
 
     p = sub.add_parser("conformance", help="conformance files")
     csub = p.add_subparsers(dest="action", required=True)
