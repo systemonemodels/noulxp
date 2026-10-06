@@ -61,12 +61,36 @@ oldest and newest supported Python, builds, installs the wheel into a clean
 environment to prove it runs, and then waits for approval in the Actions tab.
 A minute after approval, `pip install noulxp` gets it.
 
+The build runs in a job of its own, with nothing but uv and the build backend,
+and records a digest of what it made. The tests and checks run their
+third-party code in other jobs, and the publish job, the only one PyPI trusts,
+uploads only files with that digest.
+
 A new version of the standard itself (`noulxp/0.2`) is a change to SPEC.md, the
 schemas and the reference runtime together; see CONTRIBUTING.md.
+
+## Pinned tools
+
+Nothing in the workflows moves on its own, so a hijacked release of a tool
+cannot reach a published file:
+
+- **Actions** are pinned by commit, with the version in a comment. Dependabot
+  proposes new versions once a month, in one pull request.
+- **uv** is `PINNED_UV` in each workflow, checked against `PINNED_UV_SHA256`:
+  the sha256 of `uv-x86_64-unknown-linux-gnu.tar.gz` on that uv release.
+- **The build backend** (hatchling and what it needs) is pinned with hashes in
+  [.github/build-constraints.txt](.github/build-constraints.txt). To move it:
+
+  ```bash
+  echo hatchling | uv pip compile - --universal --python-version 3.11 \
+    --generate-hashes -o .github/build-constraints.txt
+  ```
+
+- **twine** is pinned where it runs.
 
 ## Try a build locally
 
 ```bash
-uv build
-uvx twine check --strict dist/*
+uv build -b .github/build-constraints.txt --require-hashes
+uvx twine==7.0.0 check --strict dist/*
 ```
