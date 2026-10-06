@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.5.0 (2026-10-06)
 
 - **`noulxp quantize PACKAGE OUT_DIR --to TARGET`**: a derived package (SPEC.md
   section 10), the same model with its weights at another precision. It keeps
@@ -17,6 +17,8 @@
   `q4_k_m`, `q4_k_s`), which refuses to re-quantise quantised weights unless
   `--allow-requantize` is given. The manifest's `source.derived` records where
   the weights came from and how.
+- README: the profiles table names the models each profile was converted and
+  checked with.
 
 ## 0.4.0 (2026-09-30)
 
