@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased
+
+- **`noulxp quantize PACKAGE OUT_DIR --to TARGET`**: a derived package (SPEC.md
+  section 10), the same model with its weights at another precision. It keeps
+  the source package's tokenizer, template or prompt, calibration and
+  conformance file, so `noulxp check` on it says whether the precision costs
+  the model any of its own answers. encoder-markers: `fp16` (float16 matrix
+  products, as PyTorch's autocast computes them; the decision head and the
+  rotary angles stay float32), `int8` (onnxruntime's dynamic quantisation of
+  the encoder's weight matrices, one activation scale per tensor, standard ONNX)
+  and `int8-block` (int8 weights and activations in blocks of 32 through ONNX
+  Runtime's MatMulNBits, so an activation outlier costs its own block only; ONNX
+  Runtime only). causal-letters: llama.cpp's own
+  quantiser (`f32`, `f16`, `bf16`, `q8_0`, `q6_k`, `q5_k_m`, `q5_k_s`,
+  `q4_k_m`, `q4_k_s`), which refuses to re-quantise quantised weights unless
+  `--allow-requantize` is given. The manifest's `source.derived` records where
+  the weights came from and how.
+
 ## 0.4.0 (2026-09-30)
 
 - **OpenDXP is now NoulXP.** Another open-source project already used the name

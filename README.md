@@ -257,6 +257,11 @@ noulxp conformance generate packages/julia-1 --native ckpt/julia-1 --runtime jul
 noulxp check packages/julia-1                    # the reference: CPU
 noulxp check packages/julia-1 --device coreml    # a backend: Core ML
 noulxp validate packages/julia-1                 # schemas, parsers, coverage, hashes
+
+# 4. A derived package at another precision, checked against the same answers.
+noulxp quantize packages/julia-1 packages/julia-1-int8 --to int8       # fp16 for GPUs
+noulxp quantize packages/decider-2b packages/decider-2b-q6_k --to q6_k # from F16/BF16
+noulxp check packages/julia-1-int8
 ```
 
 `--runtime laya` uses the `laya` package (the `laya` extra) and
